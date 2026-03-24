@@ -1,0 +1,12 @@
+@startuml sequencia
+actor Usuario
+participant "CLI (Go)" as CLI
+participant "Assinador.jar" as JAR
+
+Usuario -> CLI : runner sign --file doc.txt
+CLI -> CLI : Parse argumentos
+CLI -> JAR : exec java -jar assinador.jar sign
+JAR --> CLI : saída (stdout)
+CLI --> Usuario : resultado formatado
+
+@enduml

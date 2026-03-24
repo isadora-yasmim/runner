@@ -1,0 +1,15 @@
+@startuml sequenciahttp
+actor Usuario
+participant "CLI (Go)" as CLI
+participant "Assinador (HTTP)" as API
+participant "Assinador Core" as Core
+
+Usuario -> CLI : runner sign --file doc.txt --mode http
+CLI -> CLI : Parse argumentos
+CLI -> API : POST /sign
+API -> Core : Processar assinatura
+Core --> API : Resultado
+API --> CLI : JSON resposta
+CLI --> Usuario : Exibe resultado formatado
+
+@enduml
