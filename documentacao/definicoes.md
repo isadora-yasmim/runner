@@ -3,11 +3,11 @@ O sistema foi projetado com base em uma arquitetura em camadas combinada com o p
 A solução atende aos principais atributos de qualidade definidos pela ISO/IEC 25010, com destaque para manutenibilidade, portabilidade e confiabilidade.
 Além disso, os princípios SOLID foram aplicados para garantir um design robusto, escalável e de fácil evolução.
 
-![](diagramas/imagens/C4_Container.svg)
+![](../diagramas/imagens/C4_Container.svg)
 
 ## 2.Fluxo de execução
-![](diagramas/imagens/sequencia.svg)
-![](diagramas/imagens/sequenciahttp.svg)
+![](../diagramas/imagens/sequencia.svg)
+![](../diagramas/imagens/sequenciahttp.svg)
 
 ## 3.Linguagens, tecnologias e ferramentas
 | Item do Backlog                             | Linguagem | Tecnologias / Ferramentas                        |
