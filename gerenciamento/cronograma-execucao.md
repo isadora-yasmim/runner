@@ -6,7 +6,7 @@
 - [x] Backlog inicial
 
 ### 🟦 Semana 2 — Assinador (base)
-- [ ] Implementação da simulação de assinatura e validação
+- [x] Implementação da simulação de assinatura e validação
 - [ ] Validação inicial de parâmetros
 
 ### 🟦 Semana 3 — Assinador (refinamento)
