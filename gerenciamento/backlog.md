@@ -1,13 +1,13 @@
 # Backlog do Projeto Sistema Runner
 
 ## Épico 1 — Assinador (assinador.jar)
-- [ ] Criar projeto Java
-- [ ] Implementar comando `sign` (simulação de assinatura)
-- [ ] Implementar comando `verify` (simulação de validação)
-- [ ] Criar validador de parâmetros
-- [ ] Padronizar respostas (formato legível e estruturado)
+- [x] Criar projeto Java
+- [x] Implementar comando `sign` (simulação de assinatura)
+- [x] Implementar comando `verify` (simulação de validação)
+- [x] Criar validador de parâmetros
+- [x] Padronizar respostas (formato legível e estruturado)
 - [ ] Criar erros estruturados
-- [ ] Criar testes unitários
+- [x] Criar testes unitários
 
 ## Épico 2 — Servidor HTTP do Assinador
 - [ ] Iniciar servidor HTTP no assinador.jar

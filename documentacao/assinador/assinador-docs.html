@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assinador — Documentação</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #1e2230;
+    --accent: #00e5a0;
+    --accent2: #0ea5e9;
+    --accent3: #f59e0b;
+    --accent4: #f43f5e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --code-bg: #0d1117;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ─── GRID NOISE BACKGROUND ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10,12,16,.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 56px;
+  }
+
+  .nav-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: .85rem;
+    color: var(--accent);
+    letter-spacing: .08em;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-size: .78rem;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    transition: color .2s;
+  }
+
+  .nav-links a:hover { color: var(--accent); }
+
+  /* ─── LAYOUT ─── */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 6rem 2rem 4rem;
+  }
+
+  section { margin-bottom: 5rem; }
+
+  /* ─── HERO ─── */
+  .hero {
+    text-align: center;
+    padding: 4rem 0 3rem;
+    animation: fadeUp .8s ease both;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    background: rgba(0,229,160,.08);
+    border: 1px solid rgba(0,229,160,.25);
+    color: var(--accent);
+    padding: .3rem .9rem;
+    border-radius: 99px;
+    letter-spacing: .1em;
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -.02em;
+    margin-bottom: 1rem;
+  }
+
+  .hero h1 span {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero p {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 540px;
+    margin: 0 auto 2.5rem;
+  }
+
+  .hero-chips {
+    display: flex;
+    gap: .75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    padding: .3rem .8rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: var(--surface);
+  }
+
+  /* ─── SECTION TITLES ─── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .section-number {
+    font-family: 'DM Mono', monospace;
+    font-size: .7rem;
+    color: var(--accent);
+    letter-spacing: .1em;
+    opacity: .6;
+  }
+
+  .section-header h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── PIPELINE ─── */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: .5rem;
+  }
+
+  .pipe-step {
+    flex: 1;
+    min-width: 150px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-right: none;
+    padding: 1.5rem 1.25rem;
+    position: relative;
+    transition: background .2s;
+  }
+
+  .pipe-step:first-child { border-radius: 10px 0 0 10px; }
+  .pipe-step:last-child  { border-radius: 0 10px 10px 0; border-right: 1px solid var(--border); }
+  .pipe-step:hover { background: var(--surface2); }
+
+  .pipe-step::after {
+    content: '›';
+    position: absolute;
+    right: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-size: 1.4rem;
+    z-index: 2;
+    font-weight: 700;
+  }
+
+  .pipe-step:last-child::after { display: none; }
+
+  .pipe-icon {
+    font-size: 1.5rem;
+    margin-bottom: .5rem;
+  }
+
+  .pipe-step h4 {
+    font-size: .85rem;
+    font-weight: 700;
+    margin-bottom: .3rem;
+    letter-spacing: .01em;
+  }
+
+  .pipe-step p {
+    font-size: .72rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .pipe-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    padding: .15rem .5rem;
+    border-radius: 4px;
+    margin-top: .5rem;
+    letter-spacing: .05em;
+  }
+
+  .tag-green  { background: rgba(0,229,160,.1);  color: var(--accent);  border: 1px solid rgba(0,229,160,.2); }
+  .tag-blue   { background: rgba(14,165,233,.1); color: var(--accent2); border: 1px solid rgba(14,165,233,.2);}
+  .tag-yellow { background: rgba(245,158,11,.1); color: var(--accent3); border: 1px solid rgba(245,158,11,.2);}
+  .tag-red    { background: rgba(244,63,94,.1);  color: var(--accent4); border: 1px solid rgba(244,63,94,.2); }
+
+  /* ─── STRUCTURE TREE ─── */
+  .tree {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.75rem 2rem;
+    font-family: 'DM Mono', monospace;
+    font-size: .82rem;
+    line-height: 2;
+  }
+
+  .tree-folder { color: var(--accent2); font-weight: 500; }
+  .tree-file   { color: var(--text); }
+  .tree-desc   { color: var(--muted); font-size: .72rem; }
+  .tree-indent { padding-left: 1.4rem; border-left: 1px solid var(--border); margin-left: .5rem; }
+  .tree-line   { display: flex; align-items: baseline; gap: .75rem; }
+
+  /* ─── CARDS ─── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    transition: border-color .2s, transform .2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .card.green::before  { background: var(--accent); }
+  .card.blue::before   { background: var(--accent2); }
+  .card.yellow::before { background: var(--accent3); }
+  .card.red::before    { background: var(--accent4); }
+
+  .card:hover { border-color: #2a3040; transform: translateY(-2px); }
+
+  .card-icon {
+    font-size: 1.4rem;
+    margin-bottom: .75rem;
+  }
+
+  .card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: .4rem;
+    letter-spacing: .01em;
+  }
+
+  .card .class-name {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    color: var(--muted);
+    margin-bottom: .75rem;
+  }
+
+  .card p {
+    font-size: .82rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: .75rem;
+  }
+
+  .method-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+  }
+
+  .method-list li {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: .35rem .65rem;
+    color: var(--accent2);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .method-list li::before {
+    content: 'fn';
+    font-size: .6rem;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: .1rem .3rem;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ─── TESTS TABLE ─── */
+  .test-group {
+    margin-bottom: 1.75rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .test-group-header {
+    background: var(--surface2);
+    padding: .85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .test-group-header h4 {
+    font-family: 'DM Mono', monospace;
+    font-size: .82rem;
+    font-weight: 500;
+    flex: 1;
+  }
+
+  .test-count {
+    font-family: 'DM Mono', monospace;
+    font-size: .68rem;
+    color: var(--muted);
+    background: var(--code-bg);
+    padding: .2rem .6rem;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+  }
+
+  .test-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    padding: .75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    gap: 1rem;
+    transition: background .15s;
+  }
+
+  .test-row:last-child { border-bottom: none; }
+  .test-row:hover { background: rgba(255,255,255,.02); }
+
+  .test-name {
+    font-family: 'DM Mono', monospace;
+    font-size: .75rem;
+    color: var(--text);
+  }
+
+  .test-scenario {
+    font-size: .72rem;
+    color: var(--muted);
+    margin-top: .15rem;
+  }
+
+  .test-type {
+    font-family: 'DM Mono', monospace;
+    font-size: .65rem;
+    padding: .2rem .5rem;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .type-pos { background: rgba(0,229,160,.1); color: var(--accent); border: 1px solid rgba(0,229,160,.2); }
+  .type-neg { background: rgba(244,63,94,.1); color: var(--accent4); border: 1px solid rgba(244,63,94,.2); }
+  .type-edge { background: rgba(245,158,11,.1); color: var(--accent3); border: 1px solid rgba(245,158,11,.2);}
+
+  .pass-icon { color: var(--accent); font-size: .9rem; }
+
+  /* ─── CODE BLOCK ─── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+
+  .code-header {
+    background: var(--surface2);
+    padding: .6rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  .dot-red    { background: #ff5f57; }
+  .dot-yellow { background: #febc2e; }
+  .dot-green  { background: #28c840; }
+
+  .code-title {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    color: var(--muted);
+    margin-left: .5rem;
+  }
+
+  .code-body {
+    padding: 1.25rem 1.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: .78rem;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+
+  .kw  { color: #c084fc; }
+  .fn  { color: #60a5fa; }
+  .str { color: #86efac; }
+  .cm  { color: #475569; font-style: italic; }
+  .an  { color: var(--accent3); }
+  .cl  { color: var(--accent2); }
+
+  /* ─── FLOW DIAGRAM ─── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .flow-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color .2s;
+  }
+
+  .flow-node:hover { border-color: var(--accent); }
+
+  .flow-node-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .flow-node h4 {
+    font-size: .9rem;
+    font-weight: 700;
+    margin-bottom: .15rem;
+  }
+
+  .flow-node p {
+    font-size: .75rem;
+    color: var(--muted);
+  }
+
+  .flow-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: .25rem 0;
+  }
+
+  .flow-arrow-line {
+    width: 1px;
+    height: 12px;
+    background: var(--border);
+  }
+
+  .flow-arrow-head {
+    font-size: .8rem;
+    color: var(--muted);
+    line-height: 1;
+  }
+
+  .flow-branch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    position: relative;
+  }
+
+  .flow-branch::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 25%;
+    right: 25%;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .flow-node.success { border-color: rgba(0,229,160,.3); background: rgba(0,229,160,.05); }
+  .flow-node.error   { border-color: rgba(244,63,94,.3); background: rgba(244,63,94,.05); }
+
+  /* ─── STATS BAR ─── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-family: 'DM Mono', monospace;
+    font-size: 2rem;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: .25rem;
+  }
+
+  .stat-label {
+    font-size: .72rem;
+    color: var(--muted);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  /* ─── DEPS ─── */
+  .dep-list {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+
+  .dep-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color .2s;
+  }
+
+  .dep-item:hover { border-color: var(--accent2); }
+
+  .dep-name {
+    font-family: 'DM Mono', monospace;
+    font-size: .82rem;
+    font-weight: 500;
+    flex: 1;
+  }
+
+  .dep-version {
+    font-family: 'DM Mono', monospace;
+    font-size: .7rem;
+    color: var(--accent3);
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.2);
+    padding: .2rem .6rem;
+    border-radius: 4px;
+  }
+
+  .dep-desc {
+    font-size: .75rem;
+    color: var(--muted);
+    flex: 2;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    color: var(--muted);
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate { animation: fadeUp .6s ease both; }
+  .delay-1 { animation-delay: .1s; }
+  .delay-2 { animation-delay: .2s; }
+  .delay-3 { animation-delay: .3s; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 700px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .pipeline { flex-direction: column; }
+    .pipe-step { border-right: 1px solid var(--border); border-bottom: none; border-radius: 0; }
+    .pipe-step:first-child { border-radius: 10px 10px 0 0; }
+    .pipe-step:last-child  { border-radius: 0 0 10px 10px; border-bottom: 1px solid var(--border); }
+    .pipe-step::after { content: '↓'; right: auto; left: 50%; transform: translateX(-50%); bottom: -14px; top: auto; }
+    .test-row { grid-template-columns: 1fr; }
+    nav .nav-links { display: none; }
+    .flow-branch { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-logo">// assinador.jar</span>
+  <ul class="nav-links">
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#estrutura">Estrutura</a></li>
+    <li><a href="#funcoes">Funções</a></li>
+    <li><a href="#testes">Testes</a></li>
+    <li><a href="#deps">Dependências</a></li>
+  </ul>
+</nav>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">v1.0 — Simulação</div>
+    <h1>assinador.<span>jar</span></h1>
+    <p>Documentação técnica do simulador de assinatura digital — pipeline de execução, arquitetura de classes, funções principais e estratégia de testes.</p>
+    <div class="hero-chips">
+      <span class="chip">Java 17+</span>
+      <span class="chip">picocli</span>
+      <span class="chip">Jackson</span>
+      <span class="chip">JUnit 5</span>
+      <span class="chip">GraalVM Native</span>
+      <span class="chip">CLI Tool</span>
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section id="pipeline" class="animate delay-1">
+    <div class="section-header">
+      <span class="section-number">01</span>
+      <h2>Pipeline de Execução</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-icon">⚡</div>
+        <h4>Entrada CLI</h4>
+        <p>Usuário executa o jar com subcomando e parâmetros</p>
+        <span class="pipe-tag tag-blue">main(args)</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🔀</div>
+        <h4>Roteamento</h4>
+        <p>picocli roteia para <code>sign</code> ou <code>verify</code></p>
+        <span class="pipe-tag tag-blue">CommandLine</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🛡️</div>
+        <h4>Validação</h4>
+        <p>ParameterValidator checa campos obrigatórios e regras</p>
+        <span class="pipe-tag tag-yellow">Validator</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">⚙️</div>
+        <h4>Lógica</h4>
+        <p>Executa a simulação — gera hash ou valida assinatura</p>
+        <span class="pipe-tag tag-green">Command</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">📤</div>
+        <h4>Resposta</h4>
+        <p>JsonUtil serializa e imprime JSON estruturado no terminal</p>
+        <span class="pipe-tag tag-green">JsonUtil</span>
+      </div>
+    </div>
+
+    <!-- FLUXO SIGN VS VERIFY -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+
+      <div>
+        <p style="font-family:'DM Mono',monospace; font-size:.75rem; color:var(--accent); margin-bottom:1rem; letter-spacing:.06em;">→ FLUXO SIGN</p>
+        <div class="flow">
+          <div class="flow-node">
+            <div class="flow-node-icon">💻</div>
+            <div><h4>sign -d &lt;doc&gt; -t &lt;pin&gt;</h4><p>Parâmetros obrigatórios</p></div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-head">↓</div></div>
+          <div class="flow-node">
+            <div class="flow-node-icon">🛡️</div>
+            <div><h4>validateSign()</h4><p>doc não vazio · pin ≥ 4 chars</p></div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-head">↓</div></div>
+          <div class="flow-node">
+            <div class="flow-node-icon">🔐</div>
+            <div><h4>new SignatureData()</h4><p>hash simulado + algoritmo</p></div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-head">↓</div></div>
+          <div class="flow-node success">
+            <div class="flow-node-icon">✅</div>
+            <div><h4>printSuccess()</h4><p>JSON com hash → stdout</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p style="font-family:'DM Mono',monospace; font-size:.75rem; color:var(--accent2); margin-bottom:1rem; letter-spacing:.06em;">→ FLUXO VERIFY</p>
+        <div class="flow">
+          <div class="flow-node">
+            <div class="flow-node-icon">💻</div>
+            <div><h4>verify -d &lt;doc&gt; -s &lt;hash&gt;</h4><p>Parâmetros obrigatórios</p></div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-head">↓</div></div>
+          <div class="flow-node">
+            <div class="flow-node-icon">🛡️</div>
+            <div><h4>validateVerify()</h4><p>doc e assinatura não vazios</p></div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-head">↓</div></div>
+          <div class="flow-node">
+            <div class="flow-node-icon">🔎</div>
+            <div><h4>equals(mock_hash)</h4><p>Compara com hash esperado</p></div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-line"></div><div class="flow-arrow-head">↓</div></div>
+          <div class="flow-branch">
+            <div class="flow-node success" style="flex-direction:column; text-align:center; gap:.3rem; padding:.75rem">
+              <span>✅</span><strong style="font-size:.8rem">Válida</strong><span style="font-size:.7rem;color:var(--muted)">exit 0</span>
+            </div>
+            <div class="flow-node error" style="flex-direction:column; text-align:center; gap:.3rem; padding:.75rem">
+              <span>❌</span><strong style="font-size:.8rem">Inválida</strong><span style="font-size:.7rem;color:var(--muted)">exit 1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ESTRUTURA -->
+  <section id="estrutura" class="animate delay-2">
+    <div class="section-header">
+      <span class="section-number">02</span>
+      <h2>Estrutura do Projeto</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="tree">
+      <div class="tree-line"><span class="tree-folder">📦 assinador/</span></div>
+      <div class="tree-indent">
+        <div class="tree-line"><span class="tree-folder">📁 src/main/java/br/go/ses/assinador/</span></div>
+        <div class="tree-indent">
+          <div class="tree-line"><span class="tree-file">☕ Main.java</span><span class="tree-desc">— Entry point, registra subcomandos picocli</span></div>
+          <div class="tree-line"><span class="tree-folder">📁 commands/</span></div>
+          <div class="tree-indent">
+            <div class="tree-line"><span class="tree-file">☕ SignCommand.java</span><span class="tree-desc">— Subcomando <code>sign</code>, gera assinatura simulada</span></div>
+            <div class="tree-line"><span class="tree-file">☕ VerifyCommand.java</span><span class="tree-desc">— Subcomando <code>verify</code>, valida assinatura</span></div>
+          </div>
+          <div class="tree-line"><span class="tree-folder">📁 model/</span></div>
+          <div class="tree-indent">
+            <div class="tree-line"><span class="tree-file">☕ SignatureData.java</span><span class="tree-desc">— Modelo de resposta da assinatura (hash + algoritmo)</span></div>
+            <div class="tree-line"><span class="tree-file">☕ ResponseOutput.java</span><span class="tree-desc">— Envelope padrão de resposta (success/message/data)</span></div>
+          </div>
+          <div class="tree-line"><span class="tree-folder">📁 util/</span></div>
+          <div class="tree-indent">
+            <div class="tree-line"><span class="tree-file">☕ JsonUtil.java</span><span class="tree-desc">— Serializa e imprime respostas JSON via Jackson</span></div>
+            <div class="tree-line"><span class="tree-file">☕ ParameterValidator.java</span><span class="tree-desc">— Valida parâmetros de entrada com regras de negócio</span></div>
+          </div>
+        </div>
+        <div class="tree-line" style="margin-top:.5rem"><span class="tree-folder">📁 src/test/java/</span></div>
+        <div class="tree-indent">
+          <div class="tree-line"><span class="tree-file">🧪 ParameterValidatorTest.java</span><span class="tree-desc">— 9 cenários de teste</span></div>
+          <div class="tree-line"><span class="tree-file">🧪 SignCommandTest.java</span><span class="tree-desc">— 4 cenários de teste</span></div>
+          <div class="tree-line"><span class="tree-file">🧪 VerifyCommandTest.java</span><span class="tree-desc">— 3 cenários de teste</span></div>
+          <div class="tree-line"><span class="tree-file">🧪 JsonUtilTest.java</span><span class="tree-desc">— 2 cenários de teste</span></div>
+          <div class="tree-line"><span class="tree-file">🧪 SignatureDataTest.java</span><span class="tree-desc">— 1 cenário de teste</span></div>
+          <div class="tree-line"><span class="tree-file">🧪 ResponseOutputTest.java</span><span class="tree-desc">— 2 cenários de teste</span></div>
+        </div>
+        <div class="tree-line" style="margin-top:.5rem"><span class="tree-folder">📁 src/main/resources/META-INF/native-image/</span></div>
+        <div class="tree-indent">
+          <div class="tree-line"><span class="tree-file">📄 reflect-config.json</span><span class="tree-desc">— Reflexão para GraalVM native-image</span></div>
+          <div class="tree-line"><span class="tree-file">📄 proxy-config.json</span><span class="tree-desc">— Proxies (vazio)</span></div>
+          <div class="tree-line"><span class="tree-file">📄 resource-config.json</span><span class="tree-desc">— Recursos (vazio)</span></div>
+        </div>
+        <div class="tree-line" style="margin-top:.5rem"><span class="tree-file">📄 pom.xml</span><span class="tree-desc">— Dependências Maven e configuração do build</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FUNÇÕES -->
+  <section id="funcoes" class="animate delay-2">
+    <div class="section-header">
+      <span class="section-number">03</span>
+      <h2>Principais Funções</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="cards">
+
+      <div class="card green">
+        <div class="card-icon">⚡</div>
+        <h3>Main</h3>
+        <div class="class-name">br.go.ses.assinador.Main</div>
+        <p>Entry point da aplicação. Registra os subcomandos via anotação <code>@Command</code> e delega a execução para o picocli.</p>
+        <ul class="method-list">
+          <li>main(String[] args)</li>
+          <li>call() → Integer</li>
+        </ul>
+      </div>
+
+      <div class="card blue">
+        <div class="card-icon">🖊️</div>
+        <h3>SignCommand</h3>
+        <div class="class-name">br.go.ses.assinador.commands.SignCommand</div>
+        <p>Subcomando <code>sign</code>. Recebe documento e PIN via flags CLI. Valida os parâmetros e gera uma assinatura simulada com hash fixo e algoritmo SHA256withRSA.</p>
+        <ul class="method-list">
+          <li>call() → Integer</li>
+        </ul>
+        <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap">
+          <span class="pipe-tag tag-blue">-d / --document</span>
+          <span class="pipe-tag tag-blue">-t / --token-pin</span>
+        </div>
+      </div>
+
+      <div class="card blue">
+        <div class="card-icon">🔍</div>
+        <h3>VerifyCommand</h3>
+        <div class="class-name">br.go.ses.assinador.commands.VerifyCommand</div>
+        <p>Subcomando <code>verify</code>. Recebe documento e hash da assinatura. Valida os parâmetros e compara o hash com o valor mock esperado.</p>
+        <ul class="method-list">
+          <li>call() → Integer</li>
+        </ul>
+        <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap">
+          <span class="pipe-tag tag-blue">-d / --document</span>
+          <span class="pipe-tag tag-blue">-s / --signature</span>
+        </div>
+      </div>
+
+      <div class="card yellow">
+        <div class="card-icon">🛡️</div>
+        <h3>ParameterValidator</h3>
+        <div class="class-name">br.go.ses.assinador.util.ParameterValidator</div>
+        <p>Classe utilitária estática. Centraliza todas as regras de validação de parâmetros de entrada. Lança <code>IllegalArgumentException</code> com mensagens descritivas em caso de violação.</p>
+        <ul class="method-list">
+          <li>validateSign(document, tokenPin)</li>
+          <li>validateVerify(document, signature)</li>
+        </ul>
+      </div>
+
+      <div class="card green">
+        <div class="card-icon">📤</div>
+        <h3>JsonUtil</h3>
+        <div class="class-name">br.go.ses.assinador.util.JsonUtil</div>
+        <p>Serializa respostas usando Jackson com pretty-print. Sucesso vai para <code>stdout</code>; erros vão para <code>stderr</code>. Garante saída padronizada em todos os cenários.</p>
+        <ul class="method-list">
+          <li>printSuccess(message, data)</li>
+          <li>printError(message)</li>
+        </ul>
+      </div>
+
+      <div class="card red">
+        <div class="card-icon">📦</div>
+        <h3>Modelos</h3>
+        <div class="class-name">br.go.ses.assinador.model.*</div>
+        <p>POJOs de dados. <strong>ResponseOutput</strong> é o envelope padrão de toda resposta. <strong>SignatureData</strong> carrega o hash e o algoritmo da assinatura gerada.</p>
+        <ul class="method-list">
+          <li>ResponseOutput(success, message, data)</li>
+          <li>SignatureData(signatureHash, algorithm)</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- EXEMPLO DE SAÍDA -->
+    <div style="margin-top: 2rem; display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div>
+        <p style="font-family:'DM Mono',monospace; font-size:.72rem; color:var(--accent); margin-bottom:.75rem; letter-spacing:.06em;">→ SAÍDA DE SUCESSO (stdout)</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot dot-red"></div>
+            <div class="code-dot dot-yellow"></div>
+            <div class="code-dot dot-green"></div>
+            <span class="code-title">$ assinador sign -d doc.pdf -t 1234</span>
+          </div>
+          <div class="code-body">
+<span class="kw">{</span><br>
+&nbsp;&nbsp;<span class="str">"success"</span> : <span class="kw">true</span>,<br>
+&nbsp;&nbsp;<span class="str">"message"</span> : <span class="str">"Assinatura criada com sucesso"</span>,<br>
+&nbsp;&nbsp;<span class="str">"data"</span> : <span class="kw">{</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"signatureHash"</span> : <span class="str">"mock_hash_abc123..."</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"algorithm"</span> : <span class="str">"SHA256withRSA"</span><br>
+&nbsp;&nbsp;<span class="kw">}</span><br>
+<span class="kw">}</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p style="font-family:'DM Mono',monospace; font-size:.72rem; color:var(--accent4); margin-bottom:.75rem; letter-spacing:.06em;">→ SAÍDA DE ERRO (stderr)</p>
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dot dot-red"></div>
+            <div class="code-dot dot-yellow"></div>
+            <div class="code-dot dot-green"></div>
+            <span class="code-title">$ assinador sign -d doc.pdf -t 12</span>
+          </div>
+          <div class="code-body">
+<span class="kw">{</span><br>
+&nbsp;&nbsp;<span class="str">"success"</span> : <span class="kw">false</span>,<br>
+&nbsp;&nbsp;<span class="str">"message"</span> : <span class="str">"O PIN do token deve conter<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; pelo menos 4 caracteres."</span>,<br>
+&nbsp;&nbsp;<span class="str">"data"</span> : <span class="kw">null</span><br>
+<span class="kw">}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTES -->
+  <section id="testes" class="animate delay-3">
+    <div class="section-header">
+      <span class="section-number">04</span>
+      <h2>Testes Unitários</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-number">21</div>
+        <div class="stat-label">Total de testes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">6</div>
+        <div class="stat-label">Classes testadas</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">~95%</div>
+        <div class="stat-label">Cobertura alvo</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">JUnit 5</div>
+        <div class="stat-label">Framework</div>
+      </div>
+    </div>
+
+    <!-- PARAMETRO VALIDATOR -->
+    <div class="test-group">
+      <div class="test-group-header">
+        <span style="font-size:1rem">🛡️</span>
+        <h4>ParameterValidatorTest.java</h4>
+        <span class="test-count">9 testes</span>
+        <span class="pipe-tag tag-yellow">Maior cobertura</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateSign_documentoNulo_deveLancarExcecao</div>
+          <div class="test-scenario">document = null → IllegalArgumentException</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateSign_documentoVazio_deveLancarExcecao</div>
+          <div class="test-scenario">document = "   " → IllegalArgumentException</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateSign_pinNulo_deveLancarExcecao</div>
+          <div class="test-scenario">tokenPin = null → IllegalArgumentException</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateSign_pinVazio_deveLancarExcecao</div>
+          <div class="test-scenario">tokenPin = "  " → IllegalArgumentException</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateSign_pinMenorQue4Chars_deveLancarExcecao</div>
+          <div class="test-scenario">tokenPin = "123" → mensagem específica de erro</div>
+        </div>
+        <span class="test-type type-edge">limite</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateSign_parametrosValidos_naoDeveLancarExcecao</div>
+          <div class="test-scenario">doc + pin válidos → assertDoesNotThrow</div>
+        </div>
+        <span class="test-type type-pos">positivo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateVerify_documentoNulo_deveLancarExcecao</div>
+          <div class="test-scenario">document = null → IllegalArgumentException</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateVerify_assinaturaNula_deveLancarExcecao</div>
+          <div class="test-scenario">signature = null → IllegalArgumentException</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">validateVerify_parametrosValidos_naoDeveLancarExcecao</div>
+          <div class="test-scenario">doc + hash válidos → assertDoesNotThrow</div>
+        </div>
+        <span class="test-type type-pos">positivo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+    </div>
+
+    <!-- SIGN COMMAND -->
+    <div class="test-group">
+      <div class="test-group-header">
+        <span style="font-size:1rem">🖊️</span>
+        <h4>SignCommandTest.java</h4>
+        <span class="test-count">4 testes</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">sign_parametrosValidos_deveRetornarExitCode0</div>
+          <div class="test-scenario">-d doc.pdf -t 1234 → exit code 0</div>
+        </div>
+        <span class="test-type type-pos">positivo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">sign_semDocumento_deveRetornarExitCode1</div>
+          <div class="test-scenario">-t 1234 (sem -d) → picocli retorna exit ≠ 0</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">sign_pinMuitoCurto_deveRetornarExitCode1</div>
+          <div class="test-scenario">-d doc.pdf -t 12 → validação falha → exit 1</div>
+        </div>
+        <span class="test-type type-edge">limite</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">sign_parametrosValidos_deveProduzirJsonComHash</div>
+          <div class="test-scenario">stdout contém mock_hash + SHA256withRSA</div>
+        </div>
+        <span class="test-type type-pos">positivo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+    </div>
+
+    <!-- VERIFY COMMAND -->
+    <div class="test-group">
+      <div class="test-group-header">
+        <span style="font-size:1rem">🔍</span>
+        <h4>VerifyCommandTest.java</h4>
+        <span class="test-count">3 testes</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">verify_hashValido_deveRetornarExitCode0</div>
+          <div class="test-scenario">-d doc.pdf -s mock_hash → exit 0</div>
+        </div>
+        <span class="test-type type-pos">positivo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">verify_hashInvalido_deveRetornarExitCode1</div>
+          <div class="test-scenario">-d doc.pdf -s hash_errado → exit 1</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+      <div class="test-row">
+        <div>
+          <div class="test-name">verify_semAssinatura_naoDeveRetornarExitCode0</div>
+          <div class="test-scenario">-d doc.pdf (sem -s) → picocli retorna exit ≠ 0</div>
+        </div>
+        <span class="test-type type-neg">negativo</span>
+        <span class="pass-icon">✓</span>
+      </div>
+    </div>
+
+    <!-- JSON UTIL + MODELOS -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+
+      <div class="test-group">
+        <div class="test-group-header">
+          <span style="font-size:1rem">📤</span>
+          <h4>JsonUtilTest.java</h4>
+          <span class="test-count">2 testes</span>
+        </div>
+        <div class="test-row">
+          <div>
+            <div class="test-name">printSuccess_deveEscreverJsonNoStdout</div>
+            <div class="test-scenario">stdout capturado contém "success": true</div>
+          </div>
+          <span class="test-type type-pos">positivo</span>
+          <span class="pass-icon">✓</span>
+        </div>
+        <div class="test-row">
+          <div>
+            <div class="test-name">printError_deveEscreverJsonNoStderr</div>
+            <div class="test-scenario">stderr capturado contém "success": false</div>
+          </div>
+          <span class="test-type type-neg">negativo</span>
+          <span class="pass-icon">✓</span>
+        </div>
+      </div>
+
+      <div class="test-group">
+        <div class="test-group-header">
+          <span style="font-size:1rem">📦</span>
+          <h4>Modelos (SignatureData + ResponseOutput)</h4>
+          <span class="test-count">3 testes</span>
+        </div>
+        <div class="test-row">
+          <div>
+            <div class="test-name">SignatureData — construtor preenche campos</div>
+            <div class="test-scenario">hash + algoritmo acessíveis via getters</div>
+          </div>
+          <span class="test-type type-pos">positivo</span>
+          <span class="pass-icon">✓</span>
+        </div>
+        <div class="test-row">
+          <div>
+            <div class="test-name">ResponseOutput — todos os campos preenchidos</div>
+            <div class="test-scenario">success, message, data corretos</div>
+          </div>
+          <span class="test-type type-pos">positivo</span>
+          <span class="pass-icon">✓</span>
+        </div>
+        <div class="test-row">
+          <div>
+            <div class="test-name">ResponseOutput — data nulo funciona</div>
+            <div class="test-scenario">data=null não lança exceção</div>
+          </div>
+          <span class="test-type type-edge">limite</span>
+          <span class="pass-icon">✓</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXEMPLO DE TESTE -->
+    <div style="margin-top:1.5rem">
+      <p style="font-family:'DM Mono',monospace; font-size:.72rem; color:var(--muted); margin-bottom:.75rem; letter-spacing:.06em;">EXEMPLO — ParameterValidatorTest.java</p>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dot dot-red"></div>
+          <div class="code-dot dot-yellow"></div>
+          <div class="code-dot dot-green"></div>
+          <span class="code-title">ParameterValidatorTest.java</span>
+        </div>
+        <div class="code-body">
+<span class="an">@Test</span><br>
+<span class="kw">void</span> <span class="fn">validateSign_pinMenorQue4Chars_deveLancarExcecao</span>() {<br>
+&nbsp;&nbsp;<span class="cl">IllegalArgumentException</span> ex = <span class="fn">assertThrows</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cl">IllegalArgumentException</span>.class,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;() -> <span class="cl">ParameterValidator</span>.<span class="fn">validateSign</span>(<span class="str">"doc.pdf"</span>, <span class="str">"123"</span>)<br>
+&nbsp;&nbsp;);<br>
+&nbsp;&nbsp;<span class="fn">assertEquals</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="str">"O PIN do token deve conter pelo menos 4 caracteres."</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ex.<span class="fn">getMessage</span>()<br>
+&nbsp;&nbsp;);<br>
+}<br><br>
+<span class="an">@Test</span><br>
+<span class="kw">void</span> <span class="fn">sign_parametrosValidos_deveProduzirJsonComHash</span>() <span class="kw">throws</span> <span class="cl">Exception</span> {<br>
+&nbsp;&nbsp;<span class="cl">String</span> output = <span class="fn">tapSystemOut</span>(() -><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">new</span> <span class="cl">CommandLine</span>(<span class="kw">new</span> <span class="cl">SignCommand</span>())<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.<span class="fn">execute</span>(<span class="str">"-d"</span>, <span class="str">"doc.pdf"</span>, <span class="str">"-t"</span>, <span class="str">"1234"</span>)<br>
+&nbsp;&nbsp;);<br>
+&nbsp;&nbsp;<span class="fn">assertTrue</span>(output.<span class="fn">contains</span>(<span class="str">"mock_hash_abc123"</span>));<br>
+&nbsp;&nbsp;<span class="fn">assertTrue</span>(output.<span class="fn">contains</span>(<span class="str">"SHA256withRSA"</span>));<br>
+}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEPS -->
+  <section id="deps" class="animate delay-3">
+    <div class="section-header">
+      <span class="section-number">05</span>
+      <h2>Dependências</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="dep-list">
+      <div class="dep-item">
+        <span style="font-size:1.2rem">🖥️</span>
+        <div class="dep-name">picocli</div>
+        <div class="dep-version">4.7.x</div>
+        <div class="dep-desc">Framework para parsing de argumentos CLI. Suporta subcomandos, flags, geração automática de help e integração com GraalVM.</div>
+      </div>
+      <div class="dep-item">
+        <span style="font-size:1.2rem">📦</span>
+        <div class="dep-name">jackson-databind</div>
+        <div class="dep-version">2.17.x</div>
+        <div class="dep-desc">Serialização e desserialização JSON. Usado pelo JsonUtil para produzir saídas padronizadas em pretty-print.</div>
+      </div>
+      <div class="dep-item">
+        <span style="font-size:1.2rem">🧪</span>
+        <div class="dep-name">junit-jupiter</div>
+        <div class="dep-version">5.10.2</div>
+        <div class="dep-desc">JUnit 5 — framework de testes unitários. Scope: test. Provê @Test, assertThrows, assertEquals, assertDoesNotThrow.</div>
+      </div>
+      <div class="dep-item">
+        <span style="font-size:1.2rem">🎭</span>
+        <div class="dep-name">mockito-core</div>
+        <div class="dep-version">5.11.0</div>
+        <div class="dep-desc">Mocking de dependências em testes. Scope: test. Permite isolar unidades sem instanciar dependências reais.</div>
+      </div>
+      <div class="dep-item">
+        <span style="font-size:1.2rem">🔧</span>
+        <div class="dep-name">system-lambda</div>
+        <div class="dep-version">1.2.1</div>
+        <div class="dep-desc">Utilitários para testes que dependem de System.out/err e System.exit. Usado para capturar saídas no JsonUtilTest. Scope: test.</div>
+      </div>
+      <div class="dep-item">
+        <span style="font-size:1.2rem">📊</span>
+        <div class="dep-name">jacoco-maven-plugin</div>
+        <div class="dep-version">0.8.11</div>
+        <div class="dep-desc">Geração de relatórios de cobertura de código. Relatório HTML disponível em target/site/jacoco/index.html após mvn verify.</div>
+      </div>
+    </div>
+
+    <!-- COMANDOS FINAIS -->
+    <div class="code-block" style="margin-top:2rem">
+      <div class="code-header">
+        <div class="code-dot dot-red"></div>
+        <div class="code-dot dot-yellow"></div>
+        <div class="code-dot dot-green"></div>
+        <span class="code-title">Comandos úteis</span>
+      </div>
+      <div class="code-body">
+<span class="cm"># Compilar e executar todos os testes</span><br>
+$ mvn test<br><br>
+<span class="cm"># Gerar relatório de cobertura JaCoCo</span><br>
+$ mvn verify<br><br>
+<span class="cm"># Assinar um documento (simulação)</span><br>
+$ java -jar assinador.jar sign -d meu_doc.pdf -t 1234<br><br>
+<span class="cm"># Verificar uma assinatura</span><br>
+$ java -jar assinador.jar verify -d meu_doc.pdf -s mock_hash_abc123...<br><br>
+<span class="cm"># Compilar para binário nativo (GraalVM)</span><br>
+$ mvn -Pnative package
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span style="color:var(--accent)">assinador.jar</span> — Documentação Técnica &nbsp;·&nbsp; br.go.ses.assinador &nbsp;·&nbsp; v1.0
+</footer>
+
+</body>
+</html>

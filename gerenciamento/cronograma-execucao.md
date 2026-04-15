@@ -7,12 +7,12 @@
 
 ### 🟦 Semana 2 — Assinador (base)
 - [x] Implementação da simulação de assinatura e validação
-- [ ] Validação inicial de parâmetros
+- [x] Validação inicial de parâmetros
 
 ### 🟦 Semana 3 — Assinador (refinamento)
-- [ ] Validação completa de parâmetros
+- [x] Validação completa de parâmetros
 - [ ] Tratamento de erros
-- [ ] Testes unitários iniciais
+- [x] Testes unitários iniciais
 
 ### 🟦 Semana 4 — Modo HTTP
 - [ ] Implementação do servidor HTTP no `assinador.jar`
