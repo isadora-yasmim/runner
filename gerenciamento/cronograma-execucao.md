@@ -1,50 +1,65 @@
-## 📅 Cronograma de Desenvolvimento
+## 📅 Cronograma de Desenvolvimento (v.2)
 
 ### 🟦 Semana 1 — Planejamento
-- [x] Definição da arquitetura
+- [x] Definicao da arquitetura
 - [x] Escolha de tecnologias
 - [x] Backlog inicial
 
-### 🟦 Semana 2 — Assinador (base)
-- [x] Implementação da simulação de assinatura e validação
-- [ ] Validação inicial de parâmetros
+### 🟦 Semana 2 — Assinador (base) 
+- [x] Simulacao de assinatura e validacao
+- [x] Validacao inicial de parametros
 
-### 🟦 Semana 3 — Assinador (refinamento)
-- [ ] Validação completa de parâmetros
+
+### 🟦 Semana 3 — Assinador (refinamento) (EM ANDAMENTO)
+- [ ] Validacao completa de parametros
 - [ ] Tratamento de erros
-- [ ] Testes unitários iniciais
+- [ ] Testes unitarios iniciais
 
-### 🟦 Semana 4 — Modo HTTP
-- [ ] Implementação do servidor HTTP no `assinador.jar`
-- [ ] Criação dos endpoints (`/sign`, `/verify`)
 
-### 🟦 Semana 5 — CLI (integração direta)
-- [ ] Implementação da CLI
-- [ ] Integração com `assinador.jar` via linha de comando
+### 🟦 Semana 4 — CLI (integracao direta) + testes iniciais
+- [ ] Implementacao da CLI
+- [ ] Parsing de comandos
+- [ ] Integracao com `assinador.jar`
+- [ ] Testes basicos de integracao
 
-### 🟦 Semana 6 — CLI (HTTP)
-- [ ] Integração da CLI com o modo servidor (HTTP)
-- [ ] Melhoria da saída e usabilidade
 
-### 🟦 Semana 7 — Simulador
-- [ ] Download automático do `simulador.jar`
-- [ ] Comandos de iniciar, parar e status
+### 🟦 Semana 5 — Modo HTTP + melhorias CLI
+- [ ] Servidor HTTP no `assinador.jar`
+- [ ] Endpoints `/sign` e `/validate`
+- [ ] Reaproveitamento da validacao
+- [ ] Ajustes na CLI
 
-### 🟦 Semana 8 — Provisionamento do JDK
-- [ ] Detecção do Java instalado
-- [ ] Download e configuração automática do JDK
 
-### 🟦 Semana 9 — Testes
-- [ ] Testes de integração
-- [ ] Cobertura de cenários de erro
+### 🟦 Semana 6 — CLI (HTTP) + gerenciamento de processo
+- [ ] Integracao CLI com HTTP
+- [ ] Reutilizacao de instancia
+- [ ] Inicio/stop do assinador
+- [ ] Melhorias de usabilidade
 
-### 🟦 Semana 10 — Documentação
-- [ ] Manual de uso e guia de instalação
 
-### 🟦 Semana 11 — Build e Release
-- [ ] Geração de binários multiplataforma
-- [ ] Versionamento (SemVer) e GitHub Releases
+### 🟦 Semana 7 — Simulador + Provisionamento do JDK
+- [ ] Download do `simulador.jar`
+- [ ] Comandos start/stop/status
+- [ ] Deteccao do Java
+- [ ] Download automatico do JDK
 
-### 🟦 Semana 12 — Segurança e Finalização
-- [ ] Assinatura dos artefatos (Cosign)
-- [ ] Revisão geral do projeto
+
+### 🟦 Semana 8 — Testes e integracao geral
+- [ ] Testes de integracao completos
+- [ ] Cenarios de erro
+- [ ] Ajustes finais no fluxo
+
+
+### 🟦 Semana 9 — Documentacao + Build
+- [ ] Manual de uso
+- [ ] Guia de instalacao
+- [ ] Documentacao tecnica
+- [ ] Build multiplataforma
+
+
+### 🟦 Semana 10 — Release + Seguranca + Finalizacao
+- [ ] GitHub Releases
+- [ ] SemVer
+- [ ] Checksums
+- [ ] Assinatura com Cosign
+- [ ] Revisao geral
