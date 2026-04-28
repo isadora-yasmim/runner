@@ -5,7 +5,6 @@
 - [x] Escolha de tecnologias
 - [x] Backlog inicial
 
-
 ### 🟦 Semana 2 — Assinador (base) 
 - [x] Simulacao de assinatura e validacao
 - [x] Validacao inicial de parametros
