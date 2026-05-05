@@ -20,7 +20,7 @@ _Atualizado em 5 de maio_
 - [x] Integração com `assinador.jar` via linha de comando
 
 ### 🟦 Semana 5 — Modo HTTP
-- [ ] Implementação do servidor HTTP no `assinador.jar`
+- [x] Implementação do servidor HTTP no `assinador.jar`
 - [ ] Criação dos endpoints (`/sign`, `/verify`)
 
 ### 🟦 Semana 6 — CLI (HTTP)
