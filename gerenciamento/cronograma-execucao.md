@@ -17,7 +17,7 @@ _Atualizado em 5 de maio_
 
 ### 🟦 Semana 4 — CLI (integração direta)
 - [x] Implementação da CLI
-- [ ] Integração com `assinador.jar` via linha de comando(Em andamento)
+- [x] Integração com `assinador.jar` via linha de comando
 
 ### 🟦 Semana 5 — Modo HTTP
 - [ ] Implementação do servidor HTTP no `assinador.jar`
