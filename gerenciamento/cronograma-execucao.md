@@ -11,9 +11,9 @@
 
 
 ### 🟦 Semana 3 — Assinador (refinamento) (EM ANDAMENTO)
-- [ ] Validacao completa de parametros
-- [ ] Tratamento de erros
-- [ ] Testes unitarios iniciais
+- [x] Validacao completa de parametros
+- [x] Tratamento de erros
+- [x] Testes unitarios iniciais
 
 
 ### 🟦 Semana 4 — CLI (integracao direta) + testes iniciais
