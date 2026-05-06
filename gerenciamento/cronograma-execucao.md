@@ -12,7 +12,7 @@
 
 ### 🟦 Semana 3 — Assinador (refinamento) (EM ANDAMENTO)
 - [x] Validacao completa de parametros
-- [ ] Tratamento de erros
+- [x] Tratamento de erros
 - [x] Testes unitarios iniciais
 
 
