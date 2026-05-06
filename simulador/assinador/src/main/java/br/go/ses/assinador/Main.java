@@ -2,6 +2,7 @@ package br.go.ses.assinador;
 
 import br.go.ses.assinador.commands.SignCommand;
 import br.go.ses.assinador.commands.VerifyCommand;
+import br.go.ses.assinador.commands.ServerCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
@@ -14,7 +15,8 @@ import java.util.concurrent.Callable;
     description = "Assinador Simulado - Sistema Runner",
     subcommands = {
         SignCommand.class,
-        VerifyCommand.class
+        VerifyCommand.class,
+        ServerCommand.class
     }
 )
 public class Main implements Callable<Integer> {
