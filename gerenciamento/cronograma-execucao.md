@@ -22,9 +22,9 @@
 
 ### 🟦 Semana 5 — Modo HTTP + melhorias CLI
 - [x] Servidor HTTP no `assinador.jar`
-- [ ] Endpoints `/sign` e `/validate`
-- [ ] Reaproveitamento da validacao
-- [ ] Ajustes na CLI
+- [x] Endpoints `/sign` e `/validate`
+- [x] Reaproveitamento da validacao
+- [x] Ajustes na CLI
 
 ### 🟦 Semana 6 — CLI (HTTP) + gerenciamento de processo
 - [ ] Integracao CLI com HTTP
