@@ -1,12 +1,18 @@
 package br.go.ses.assinador.http;
 
 import br.go.ses.assinador.model.ResponseOutput;
+import br.go.ses.assinador.model.SignatureData;
+import br.go.ses.assinador.util.ParameterValidator;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class AssinadorHttpServer {
@@ -15,6 +21,9 @@ public class AssinadorHttpServer {
     private HttpServer server;
     private static final ObjectMapper mapper = new ObjectMapper();
 
+    private static final String MOCK_SIGNATURE =
+            "mock_hash_abc123_base64_encoded_signature_simulated";
+
     public AssinadorHttpServer(int port) {
         this.port = port;
     }
@@ -22,14 +31,11 @@ public class AssinadorHttpServer {
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress(port), 0);
 
-        // =========================
-        // HEALTH CHECK
-        // =========================
         server.createContext("/health", exchange -> {
             try {
                 if (!"GET".equals(exchange.getRequestMethod())) {
                     sendResponse(exchange, 405,
-                        new ResponseOutput(false, "Metodo nao permitido", null));
+                            new ResponseOutput(false, "Metodo nao permitido", null));
                     return;
                 }
 
@@ -43,7 +49,75 @@ public class AssinadorHttpServer {
 
             } catch (Exception e) {
                 sendResponse(exchange, 500,
-                    new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
+                        new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
+            }
+        });
+
+        server.createContext("/sign", exchange -> {
+            try {
+                if (!"POST".equals(exchange.getRequestMethod())) {
+                    sendResponse(exchange, 405,
+                            new ResponseOutput(false, "Metodo nao permitido", null));
+                    return;
+                }
+
+                JsonNode body = readJsonBody(exchange);
+
+                String document = getTextField(body, "document");
+                String tokenPin = getTextField(body, "tokenPin");
+
+                ParameterValidator.validateSign(document, tokenPin);
+
+                SignatureData signatureData = new SignatureData(
+                        MOCK_SIGNATURE,
+                        "SHA256withRSA"
+                );
+
+                sendResponse(exchange, 200,
+                        new ResponseOutput(true, "Assinatura criada com sucesso (Simulacao)", signatureData));
+
+            } catch (IllegalArgumentException e) {
+                sendResponse(exchange, 400,
+                        new ResponseOutput(false, e.getMessage(), null));
+
+            } catch (Exception e) {
+                sendResponse(exchange, 500,
+                        new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
+            }
+        });
+
+        server.createContext("/validate", exchange -> {
+            try {
+                if (!"POST".equals(exchange.getRequestMethod())) {
+                    sendResponse(exchange, 405,
+                            new ResponseOutput(false, "Metodo nao permitido", null));
+                    return;
+                }
+
+                JsonNode body = readJsonBody(exchange);
+
+                String document = getTextField(body, "document");
+                String signature = getTextField(body, "signature");
+
+                ParameterValidator.validateVerify(document, signature);
+
+                boolean isValid = MOCK_SIGNATURE.equals(signature);
+
+                if (isValid) {
+                    sendResponse(exchange, 200,
+                            new ResponseOutput(true, "Assinatura valida.", true));
+                } else {
+                    sendResponse(exchange, 200,
+                            new ResponseOutput(false, "Assinatura invalida ou corrompida.", false));
+                }
+
+            } catch (IllegalArgumentException e) {
+                sendResponse(exchange, 400,
+                        new ResponseOutput(false, e.getMessage(), null));
+
+            } catch (Exception e) {
+                sendResponse(exchange, 500,
+                        new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
         });
 
@@ -57,11 +131,26 @@ public class AssinadorHttpServer {
         }
     }
 
-    // =========================
-    // MÉTODO UTILITÁRIO
-    // =========================
+    private JsonNode readJsonBody(HttpExchange exchange) throws IOException {
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+
+        if (body.trim().isEmpty()) {
+            throw new IllegalArgumentException("Corpo da requisicao nao pode estar vazio.");
+        }
+
+        return mapper.readTree(body);
+    }
+
+    private String getTextField(JsonNode body, String fieldName) {
+        if (body == null || !body.has(fieldName) || body.get(fieldName).isNull()) {
+            return null;
+        }
+
+        return body.get(fieldName).asText();
+    }
+
     private void sendResponse(
-            com.sun.net.httpserver.HttpExchange exchange,
+            HttpExchange exchange,
             int statusCode,
             ResponseOutput response
     ) throws IOException {
@@ -70,7 +159,7 @@ public class AssinadorHttpServer {
                 .writerWithDefaultPrettyPrinter()
                 .writeValueAsString(response);
 
-        byte[] bytes = json.getBytes();
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
 
         exchange.getResponseHeaders().add("Content-Type", "application/json");
         exchange.sendResponseHeaders(statusCode, bytes.length);
