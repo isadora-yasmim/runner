@@ -27,7 +27,7 @@
 - [x] Ajustes na CLI
 
 ### 🟦 Semana 6 — CLI (HTTP) + gerenciamento de processo
-- [ ] Integracao CLI com HTTP
+- [x] Integracao CLI com HTTP
 - [ ] Reutilizacao de instancia
 - [ ] Inicio/stop do assinador
 - [ ] Melhorias de usabilidade
