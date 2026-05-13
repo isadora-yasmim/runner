@@ -3,17 +3,16 @@ package cmd
 import (
 	"fmt"
 	"os/exec"
+
 	"github.com/spf13/cobra"
 )
-
-var startPort int
 
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Inicia o assinador.jar em modo servidor HTTP",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if isServerRunning(startPort) {
-			fmt.Printf("✅ Assinador já está em execução na porta %d.\n", startPort)
+		if isServerRunning(serverPort) {
+			fmt.Printf("✅ Assinador já está em execução na porta %d.\n", serverPort)
 			return nil
 		}
 
@@ -25,7 +24,7 @@ var startCmd = &cobra.Command{
 			jarPath,
 			"server",
 			"--port",
-			fmt.Sprintf("%d", startPort),
+			fmt.Sprintf("%d", serverPort),
 		)
 
 		err := command.Start()
@@ -33,7 +32,7 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("erro ao iniciar assinador.jar: %w", err)
 		}
 
-		fmt.Printf("✅ Assinador iniciado na porta %d.\n", startPort)
+		fmt.Printf("✅ Assinador iniciado na porta %d.\n", serverPort)
 		fmt.Printf("PID: %d\n", command.Process.Pid)
 
 		return nil
@@ -42,5 +41,4 @@ var startCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-	startCmd.Flags().IntVarP(&startPort, "port", "p", 8080, "Porta do servidor HTTP do assinador")
 }

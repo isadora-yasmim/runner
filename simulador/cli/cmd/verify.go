@@ -1,52 +1,84 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 )
 
+type VerifyRequest struct {
+	Document  string `json:"document"`
+	Signature string `json:"signature"`
+}
+
 var verifyDocument string
 var verifySignature string
-var verifyJarPath string
 
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Valida uma assinatura digital",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		cmdExec := exec.Command(
-			"java",
-			"-jar",
-			verifyJarPath,
-			"verify",
-			"-d", verifyDocument,
-			"-s", verifySignature,
+		if !isServerRunning(serverPort) {
+			fmt.Printf("❌ Assinador não está em execução na porta %d.\n", serverPort)
+			fmt.Println("Inicie o servidor usando:")
+			fmt.Printf("go run . start -p %d\n", serverPort)
+			os.Exit(1)
+		}
+
+		request := VerifyRequest{
+			Document:  verifyDocument,
+			Signature: verifySignature,
+		}
+
+		body, err := json.Marshal(request)
+		if err != nil {
+			fmt.Println("❌ Erro ao gerar requisição HTTP")
+			os.Exit(1)
+		}
+
+		url := fmt.Sprintf(
+			"http://localhost:%d/verify",
+			serverPort,
 		)
 
-		output, err := cmdExec.CombinedOutput()
+		resp, err := http.Post(
+			url,
+			"application/json",
+			bytes.NewBuffer(body),
+		)
 
 		if err != nil {
-			fmt.Println("❌ Erro ao executar assinador:")
-			fmt.Println(string(output))
+			fmt.Println("❌ Erro ao conectar com o assinador HTTP")
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		responseBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("❌ Erro ao ler resposta do servidor")
 			os.Exit(1)
 		}
 
-		var resp ResponseOutput
-		if err := json.Unmarshal(output, &resp); err != nil {
+		var response ResponseOutput
+
+		if err := json.Unmarshal(responseBody, &response); err != nil {
 			fmt.Println("❌ Erro ao interpretar resposta")
-			fmt.Println(string(output))
+			fmt.Println(string(responseBody))
 			os.Exit(1)
 		}
 
-		if resp.Success {
+		if response.Success {
 			fmt.Println("✔ Assinatura válida")
 		} else {
 			fmt.Println("❌ Assinatura inválida")
-			fmt.Println("→", resp.Message)
+			fmt.Println("→", response.Message)
 			os.Exit(1)
 		}
 	},
@@ -55,13 +87,20 @@ var verifyCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(verifyCmd)
 
-	verifyCmd.Flags().StringVarP(&verifyDocument, "document", "d", "", "Documento")
-	verifyCmd.Flags().StringVarP(&verifySignature, "signature", "s", "", "Assinatura")
-	verifyCmd.Flags().StringVar(
-		&verifyJarPath,
-		"jar",
-		"..\\assinador\\target\\assinador-1.0-SNAPSHOT.jar",
-		"Caminho do jar",
+	verifyCmd.Flags().StringVarP(
+		&verifyDocument,
+		"document",
+		"d",
+		"",
+		"Documento",
+	)
+
+	verifyCmd.Flags().StringVarP(
+		&verifySignature,
+		"signature",
+		"s",
+		"",
+		"Assinatura",
 	)
 
 	verifyCmd.MarkFlagRequired("document")
