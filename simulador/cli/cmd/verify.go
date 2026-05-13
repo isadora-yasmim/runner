@@ -24,10 +24,10 @@ var verifyCmd = &cobra.Command{
 	Short: "Valida uma assinatura digital",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		if !isServerRunning(serverPort) {
-			fmt.Printf("❌ Assinador não está em execução na porta %d.\n", serverPort)
-			fmt.Println("Inicie o servidor usando:")
-			fmt.Printf("go run . start -p %d\n", serverPort)
+		err := ensureServerRunning()
+		if err != nil {
+			fmt.Println("❌ Erro ao garantir execução do assinador")
+			fmt.Println(err)
 			os.Exit(1)
 		}
 

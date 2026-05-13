@@ -121,6 +121,37 @@ public class AssinadorHttpServer {
             }
         });
 
+        server.createContext("/stop", exchange -> {
+            try {
+                if (!"POST".equals(exchange.getRequestMethod())) {
+                    sendResponse(exchange, 405,
+                            new ResponseOutput(false, "Metodo nao permitido", null));
+                    return;
+                }
+
+                sendResponse(exchange, 200,
+                        new ResponseOutput(true, "Servidor encerrado com sucesso.", null));
+
+                Thread shutdownThread = new Thread(() -> {
+                    try {
+                        Thread.sleep(500);
+                        server.stop(0);
+                        System.exit(0);
+                    } catch (Exception e) {
+                        System.err.println("Erro ao encerrar servidor: " + e.getMessage());
+                        System.exit(1);
+                    }
+                });
+
+                shutdownThread.setDaemon(false);
+                shutdownThread.start();
+
+            } catch (Exception e) {
+                sendResponse(exchange, 500,
+                        new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
+            }
+        });
+
         server.setExecutor(null);
         server.start();
     }
