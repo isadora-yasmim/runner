@@ -26,11 +26,11 @@
 - [x] Reaproveitamento da validacao
 - [x] Ajustes na CLI
 
-### 🟦 Semana 6 — CLI (HTTP) + gerenciamento de processo
+### 🟦 Semana 6 — CLI (HTTP) + gerenciamento de processo [EM ANDAMENTO]
 - [ ] Integracao CLI com HTTP
 - [ ] Reutilizacao de instancia
-- [ ] Inicio/stop do assinador
-- [ ] Melhorias de usabilidade
+- [X] Inicio/stop do assinador
+- [X] Melhorias de usabilidade
 
 ### 🟦 Semana 7 — Simulador + Provisionamento do JDK
 - [ ] Download do `simulador.jar`
