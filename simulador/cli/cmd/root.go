@@ -29,6 +29,9 @@ to quickly create a Cobra application.`,
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
+
+var serverPort int
+
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -46,6 +49,14 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	rootCmd.PersistentFlags().IntVarP(
+	&serverPort,
+	"port",
+	"p",
+	8080,
+	"Porta do servidor HTTP do assinador",
+)
 }
 
 
