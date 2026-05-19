@@ -28,8 +28,8 @@
 
 ### 🟦 Semana 6 — CLI (HTTP) + gerenciamento de processo
 - [x] Integracao CLI com HTTP
-- [ ] Reutilizacao de instancia
-- [ ] Inicio/stop do assinador
+- [x] Reutilizacao de instancia
+- [x] Inicio/stop do assinador
 - [ ] Melhorias de usabilidade
 
 ### 🟦 Semana 7 — Simulador + Provisionamento do JDK
