@@ -43,7 +43,7 @@ var verifyCmd = &cobra.Command{
 		}
 
 		url := fmt.Sprintf(
-			"http://localhost:%d/verify",
+			"http://localhost:%d/validate",
 			serverPort,
 		)
 
