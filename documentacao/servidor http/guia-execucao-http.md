@@ -1,33 +1,213 @@
-# Guia de Execução — Servidor HTTP do assinador
+# Guia de Execução — CLI de Assinatura
 
 ## Pré-requisitos
 
-- Java instalado (JDK 11 ou superior)
+- Go instalado
+- Java (JDK 21+) disponível no `PATH`
 - Maven instalado
+- `assinador.jar` previamente compilado
 
 ---
 
-# 1. Compilar o projeto
+## 1. Acessar o diretório do CLI
 
-No terminal, dentro da pasta do `assinador`:
+No terminal, navegue até a pasta do CLI:
 
 ```bash
-mvn clean compile
+cd runner/simulador/cli
 ```
 
 ---
 
-# 2. Iniciar o servidor HTTP
+## 2. Compilar o `assinador.jar`
 
-## Porta padrão (8080)
+Antes de utilizar o CLI com integração HTTP, compile o `assinador.jar`.
+
+Na pasta do assinador:
 
 ```bash
-mvn exec:java "-Dexec.mainClass=br.go.ses.assinador.Main" "-Dexec.args=server"
+cd ../assinador
+mvn clean package
+```
+
+O `.jar` será gerado em:
+
+```text
+target/assinador-1.0-SNAPSHOT.jar
+```
+
+Depois, retorne para a pasta do CLI:
+
+```bash
+cd ../cli
 ```
 
 ---
 
-## Porta customizada
+## 3. Verificar versão do CLI
+
+```bash
+go run . version
+```
+
+Saída esperada:
+
+```text
+assinatura version 0.1.0
+```
+
+---
+
+## 4. Iniciar o assinador em modo servidor HTTP
+
+O comando `start` inicia o `assinador.jar` em modo servidor HTTP.
+
+### Porta padrão (8080)
+
+```bash
+go run . start
+```
+
+### Porta personalizada
+
+```bash
+go run . --port 8081 start
+```
+
+Saída esperada:
+
+```text
+✅ Assinador iniciado na porta 8081.
+PID: 12345
+```
+
+---
+
+## 5. Verificar status do assinador
+
+### Porta padrão
+
+```bash
+go run . status
+```
+
+### Porta personalizada
+
+```bash
+go run . --port 8081 status
+```
+
+Saída esperada quando o servidor está ativo:
+
+```text
+✅ Assinador HTTP ativo na porta 8081.
+→ O CLI reutilizará esta instância nas próximas operações.
+```
+
+Saída esperada quando o servidor não está ativo:
+
+```text
+❌ Nenhum assinador HTTP ativo na porta 8081.
+→ Os comandos sign e verify tentarão iniciar o assinador automaticamente.
+```
+
+---
+
+## 6. Criar uma assinatura simulada
+
+### Porta padrão
+
+```bash
+go run . sign -d documento.txt -t 1234
+```
+
+### Porta personalizada
+
+```bash
+go run . --port 8081 sign -d documento.txt -t 1234
+```
+
+Saída esperada:
+
+```text
+✔ Assinatura criada com sucesso
+
+→ Hash: mock_hash_abc123_base64_encoded_signature_simulated
+→ Algoritmo: SHA256withRSA
+```
+
+---
+
+## 7. Validar uma assinatura
+
+### Assinatura válida
+
+```bash
+go run . verify -d documento.txt -s mock_hash_abc123_base64_encoded_signature_simulated
+```
+
+Com porta personalizada:
+
+```bash
+go run . --port 8081 verify -d documento.txt -s mock_hash_abc123_base64_encoded_signature_simulated
+```
+
+Saída esperada:
+
+```text
+✔ Assinatura válida
+```
+
+---
+
+### Assinatura inválida
+
+```bash
+go run . verify -d documento.txt -s assinatura_errada
+```
+
+Com porta personalizada:
+
+```bash
+go run . --port 8081 verify -d documento.txt -s assinatura_errada
+```
+
+Saída esperada:
+
+```text
+❌ Assinatura inválida
+→ Assinatura invalida ou corrompida.
+```
+
+Observação: nesse caso, o CLI pode finalizar com código de erro, pois a assinatura foi considerada inválida.
+
+---
+
+## 8. Encerrar o assinador
+
+### Porta padrão
+
+```bash
+go run . stop
+```
+
+### Porta personalizada
+
+```bash
+go run . --port 8081 stop
+```
+
+Saída esperada:
+
+```text
+✅ Assinador encerrado na porta 8081.
+```
+
+---
+
+## 9. Executar o servidor Java manualmente
+
+Caso deseje iniciar o servidor Java manualmente, execute dentro da pasta do `assinador`:
 
 ```bash
 mvn exec:java "-Dexec.mainClass=br.go.ses.assinador.Main" "-Dexec.args=server --port 8081"
@@ -35,241 +215,82 @@ mvn exec:java "-Dexec.mainClass=br.go.ses.assinador.Main" "-Dexec.args=server --
 
 ---
 
-# 3. Endpoints disponíveis
+## 10. Fluxo da integração HTTP
 
-## GET /health
+O CLI se comunica com o `assinador.jar` via HTTP:
 
-Verifica se o servidor HTTP está ativo.
-
-### Exemplo de requisição
-
-```bash
-curl http://localhost:8080/health
+```text
+CLI (Go)
+   ↓
+HTTP Request
+   ↓
+assinador.jar
+   ↓
+Validação + Simulação
+   ↓
+Resposta
 ```
 
-ou no PowerShell:
+Endpoints utilizados:
 
-```bash
-curl.exe http://localhost:8080/health
-```
-
----
-
-### Resposta esperada
-
-```json
-{
-  "success": true,
-  "message": "Assinador HTTP ativo",
-  "data": {
-    "status": "UP"
-  }
-}
+```text
+GET  /health
+POST /sign
+POST /validate
+POST /stop
 ```
 
 ---
 
-## POST /sign
+## 11. Reutilização de instância
 
-Cria uma assinatura simulada.
+Antes de iniciar uma nova instância do `assinador.jar`, o CLI verifica automaticamente:
 
-### Exemplo de requisição
-
-### Linux/macOS
-
-```bash
-curl -X POST http://localhost:8080/sign \
--H "Content-Type: application/json" \
--d '{"document":"documento.txt","tokenPin":"1234"}'
+```text
+GET /health
 ```
+
+Se o servidor já estiver ativo, a instância existente é reutilizada.
+
+Se o servidor não estiver ativo, os comandos `sign` e `verify` tentam iniciar o assinador automaticamente.
 
 ---
 
-### Windows PowerShell
+## 12. Problemas comuns
 
-```bash
-curl.exe --% -X POST http://localhost:8080/sign -H "Content-Type: application/json" -d "{\"document\":\"documento.txt\",\"tokenPin\":\"1234\"}"
-```
+### Comando `java` não reconhecido
 
----
+Verifique se o Java está disponível no `PATH`.
 
-### Corpo JSON
-
-```json
-{
-  "document": "documento.txt",
-  "tokenPin": "1234"
-}
-```
-
----
-
-### Resposta esperada
-
-```json
-{
-  "success": true,
-  "message": "Assinatura criada com sucesso (Simulacao)",
-  "data": {
-    "signatureHash": "mock_hash_abc123_base64_encoded_signature_simulated",
-    "algorithm": "SHA256withRSA"
-  }
-}
-```
-
----
-
-## POST /validate
-
-Valida uma assinatura simulada.
-
-### Exemplo de requisição
-
-### Linux/macOS
-
-```bash
-curl -X POST http://localhost:8080/validate \
--H "Content-Type: application/json" \
--d '{"document":"documento.txt","signature":"mock_hash_abc123_base64_encoded_signature_simulated"}'
-```
-
----
-
-### Windows PowerShell
-
-```bash
-curl.exe --% -X POST http://localhost:8080/validate -H "Content-Type: application/json" -d "{\"document\":\"documento.txt\",\"signature\":\"mock_hash_abc123_base64_encoded_signature_simulated\"}"
-```
-
----
-
-### Corpo JSON
-
-```json
-{
-  "document": "documento.txt",
-  "signature": "mock_hash_abc123_base64_encoded_signature_simulated"
-}
-```
-
----
-
-### Resposta esperada — assinatura válida
-
-```json
-{
-  "success": true,
-  "message": "Assinatura valida.",
-  "data": true
-}
-```
-
----
-
-### Resposta esperada — assinatura inválida
-
-```json
-{
-  "success": false,
-  "message": "Assinatura invalida ou corrompida.",
-  "data": false
-}
-```
-
----
-
-# 4. Testes automatizados
-
-Foram implementados testes automatizados para validação dos endpoints HTTP:
-
-- `GET /health`
-- `POST /sign`
-- `POST /validate`
-- tratamento de método inválido (`HTTP 405`)
-
----
-
-## Executar testes
-
-```bash
-mvn test
-```
-
----
-
-## Resultado esperado
-
-```bash
-BUILD SUCCESS
-```
-
----
-
-# 5. Encerrar o servidor
-
-No terminal:
-
-```bash
-CTRL + C
-```
-
----
-
-# 6. Problemas comuns
-
-## ❌ Porta já em uso
-
-Erro:
-
-```bash
-Address already in use
-```
-
-### Solução
-
-Usar outra porta:
-
-```bash
---port 8081
-```
-
-OU finalizar o processo que está utilizando a porta:
-
-```bash
-netstat -ano | findstr :8080
-taskkill /PID <PID> /F
-```
-
----
-
-## ❌ PowerShell interpretando JSON incorretamente
-
-No Windows PowerShell, recomenda-se utilizar:
-
-```bash
-curl.exe --%
-```
-
-para evitar problemas de escape de caracteres em requisições JSON.
-
----
-
-## ❌ Comando `java` não reconhecido
-
-Verifique se o Java está configurado corretamente no `PATH`.
-
-Exemplo:
+No Windows, o caminho pode ser semelhante a:
 
 ```text
 C:\Program Files\Java\jdk-23\bin
 ```
 
+Teste com:
+
+```bash
+java -version
+```
+
 ---
 
-# 7. Observações
+### Arquivo `.jar` não encontrado
 
-O servidor HTTP permite que o CLI se comunique com o `assinador.jar` via requisições HTTP, evitando o custo de inicialização da JVM a cada execução (*cold start*).
+Se o CLI não conseguir iniciar o assinador, verifique se o `.jar` foi gerado:
 
-Essa abordagem melhora a reutilização da instância Java, reduz a latência das operações e prepara a aplicação para comunicação entre processos de forma multiplataforma (Windows, Linux e macOS).
+```bash
+cd ../assinador
+mvn clean package
+```
 
-A implementação está alinhada com o modo HTTP definido na especificação oficial do Sistema Runner.
+---
+
+### Porta já em uso
+
+Se a porta padrão estiver ocupada, utilize outra porta:
+
+```bash
+go run . --port 8081 start
+```
