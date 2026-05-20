@@ -26,8 +26,8 @@ var verifyCmd = &cobra.Command{
 
 		err := ensureServerRunning()
 		if err != nil {
-			fmt.Println("❌ Erro ao garantir execução do assinador")
-			fmt.Println(err)
+			fmt.Println("❌ Não foi possível conectar ao assinador HTTP.")
+			fmt.Println("→", err)
 			os.Exit(1)
 		}
 
@@ -38,7 +38,7 @@ var verifyCmd = &cobra.Command{
 
 		body, err := json.Marshal(request)
 		if err != nil {
-			fmt.Println("❌ Erro ao gerar requisição HTTP")
+			fmt.Println("❌ Erro ao preparar a requisição de validação.")
 			os.Exit(1)
 		}
 
@@ -54,33 +54,34 @@ var verifyCmd = &cobra.Command{
 		)
 
 		if err != nil {
-			fmt.Println("❌ Erro ao conectar com o assinador HTTP")
-			fmt.Println(err)
+			fmt.Println("❌ Erro ao enviar requisição para o assinador HTTP.")
+			fmt.Println("→", err)
 			os.Exit(1)
 		}
 		defer resp.Body.Close()
 
 		responseBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Println("❌ Erro ao ler resposta do servidor")
+			fmt.Println("❌ Erro ao ler resposta do servidor.")
 			os.Exit(1)
 		}
 
 		var response ResponseOutput
 
 		if err := json.Unmarshal(responseBody, &response); err != nil {
-			fmt.Println("❌ Erro ao interpretar resposta")
+			fmt.Println("❌ Erro ao interpretar resposta do assinador HTTP.")
 			fmt.Println(string(responseBody))
 			os.Exit(1)
 		}
 
 		if response.Success {
 			fmt.Println("✔ Assinatura válida")
-		} else {
-			fmt.Println("❌ Assinatura inválida")
-			fmt.Println("→", response.Message)
-			os.Exit(1)
+			return
 		}
+
+		fmt.Println("❌ Assinatura inválida")
+		fmt.Println("→", response.Message)
+		os.Exit(1)
 	},
 }
 
