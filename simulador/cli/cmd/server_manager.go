@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"time"
 )
 
@@ -11,6 +12,11 @@ func ensureServerRunning() error {
 
 	if isServerRunning(serverPort) {
 		return nil
+	}
+
+	err := checkJavaInstalled()
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("⚠️ Assinador não encontrado na porta %d.\n", serverPort)
@@ -27,7 +33,7 @@ func ensureServerRunning() error {
 		fmt.Sprintf("%d", serverPort),
 	)
 
-	err := command.Start()
+	err = command.Start()
 	if err != nil {
 		return fmt.Errorf("erro ao iniciar assinador automaticamente: %w", err)
 	}
@@ -75,4 +81,25 @@ func isServerRunning(port int) bool {
 	defer resp.Body.Close()
 
 	return resp.StatusCode == http.StatusOK
+}
+
+func checkJavaInstalled() error {
+
+	command := exec.Command("java", "-version")
+
+	err := command.Run()
+	if err != nil {
+
+		if runtime.GOOS == "windows" {
+			return fmt.Errorf(
+				"Java não encontrado no PATH.\n→ Instale o JDK 21+ e adicione o caminho 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
+			)
+		}
+
+		return fmt.Errorf(
+			"Java não encontrado no PATH.\n→ Instale o JDK 21+ e configure o PATH corretamente",
+		)
+	}
+
+	return nil
 }
