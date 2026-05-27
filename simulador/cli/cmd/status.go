@@ -11,9 +11,11 @@ var statusCmd = &cobra.Command{
 	Short: "Verifica se o assinador.jar está em execução",
 	Run: func(cmd *cobra.Command, args []string) {
 		if isServerRunning(serverPort) {
-			fmt.Printf("✅ Assinador está em execução na porta %d.\n", serverPort)
+			fmt.Printf("✅ Assinador HTTP ativo na porta %d.\n", serverPort)
+			fmt.Println("→ O CLI reutilizará esta instância nas próximas operações.")
 		} else {
-			fmt.Printf("❌ Assinador não está em execução na porta %d.\n", serverPort)
+			fmt.Printf("❌ Nenhum assinador HTTP ativo na porta %d.\n", serverPort)
+			fmt.Println("→ Os comandos sign e verify tentarão iniciar o assinador automaticamente.")
 		}
 	},
 }

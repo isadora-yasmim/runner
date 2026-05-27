@@ -3,7 +3,10 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -13,10 +16,18 @@ func ensureServerRunning() error {
 		return nil
 	}
 
+	err := checkJavaInstalled()
+	if err != nil {
+		return err
+	}
+
+	jarPath, err := getAssinadorJarPath()
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("⚠️ Assinador não encontrado na porta %d.\n", serverPort)
 	fmt.Println("🚀 Iniciando automaticamente...")
-
-	jarPath := "..\\assinador\\target\\assinador-1.0-SNAPSHOT.jar"
 
 	command := exec.Command(
 		"java",
@@ -27,12 +38,12 @@ func ensureServerRunning() error {
 		fmt.Sprintf("%d", serverPort),
 	)
 
-	err := command.Start()
+	err = command.Start()
 	if err != nil {
 		return fmt.Errorf("erro ao iniciar assinador automaticamente: %w", err)
 	}
 
-	fmt.Printf("✅ Assinador iniciado automaticamente.\n")
+	fmt.Println("✅ Assinador iniciado automaticamente.")
 	fmt.Printf("PID: %d\n", command.Process.Pid)
 
 	return waitForServer()
@@ -75,4 +86,42 @@ func isServerRunning(port int) bool {
 	defer resp.Body.Close()
 
 	return resp.StatusCode == http.StatusOK
+}
+
+func checkJavaInstalled() error {
+
+	command := exec.Command("java", "-version")
+
+	err := command.Run()
+	if err != nil {
+
+		if runtime.GOOS == "windows" {
+			return fmt.Errorf(
+				"Java não encontrado no PATH.\n→ Instale o JDK 21+ e adicione o caminho 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
+			)
+		}
+
+		return fmt.Errorf(
+			"Java não encontrado no PATH.\n→ Instale o JDK 21+ e configure o PATH corretamente",
+		)
+	}
+
+	return nil
+}
+
+func getAssinadorJarPath() (string, error) {
+
+	jarPath := filepath.Join("..", "assinador", "target", "assinador-1.0-SNAPSHOT.jar")
+
+	if _, err := os.Stat(jarPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf(
+				"assinador.jar não encontrado.\n→ Execute: cd ..\\assinador && mvn clean package",
+			)
+		}
+
+		return "", fmt.Errorf("erro ao verificar assinador.jar: %w", err)
+	}
+
+	return jarPath, nil
 }
