@@ -16,7 +16,15 @@ var startCmd = &cobra.Command{
 			return nil
 		}
 
-		jarPath := "..\\assinador\\target\\assinador-1.0-SNAPSHOT.jar"
+		err := checkJavaInstalled()
+		if err != nil {
+			return err
+		}
+
+		jarPath, err := getAssinadorJarPath()
+		if err != nil {
+			return err
+		}
 
 		command := exec.Command(
 			"java",
@@ -27,7 +35,7 @@ var startCmd = &cobra.Command{
 			fmt.Sprintf("%d", serverPort),
 		)
 
-		err := command.Start()
+		err = command.Start()
 		if err != nil {
 			return fmt.Errorf("erro ao iniciar assinador.jar: %w", err)
 		}
