@@ -30,12 +30,12 @@
 - [x] Integracao CLI com HTTP
 - [x] Reutilizacao de instancia
 - [x] Inicio/stop do assinador
-- [ ] Melhorias de usabilidade
+- [x] Melhorias de usabilidade
 
 ### 🟦 Semana 7 — Simulador + Provisionamento do JDK
 - [ ] Download do `simulador.jar`
-- [ ] Comandos start/stop/status
-- [ ] Deteccao do Java
+- [x] Comandos start/stop/status
+- [x] Deteccao do Java
 - [ ] Download automatico do JDK
 
 ### 🟦 Semana 8 — Testes e integracao geral
