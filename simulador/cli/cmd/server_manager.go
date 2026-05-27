@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 )
@@ -19,10 +21,13 @@ func ensureServerRunning() error {
 		return err
 	}
 
+	jarPath, err := getAssinadorJarPath()
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("⚠️ Assinador não encontrado na porta %d.\n", serverPort)
 	fmt.Println("🚀 Iniciando automaticamente...")
-
-	jarPath := "..\\assinador\\target\\assinador-1.0-SNAPSHOT.jar"
 
 	command := exec.Command(
 		"java",
@@ -38,7 +43,7 @@ func ensureServerRunning() error {
 		return fmt.Errorf("erro ao iniciar assinador automaticamente: %w", err)
 	}
 
-	fmt.Printf("✅ Assinador iniciado automaticamente.\n")
+	fmt.Println("✅ Assinador iniciado automaticamente.")
 	fmt.Printf("PID: %d\n", command.Process.Pid)
 
 	return waitForServer()
@@ -102,4 +107,21 @@ func checkJavaInstalled() error {
 	}
 
 	return nil
+}
+
+func getAssinadorJarPath() (string, error) {
+
+	jarPath := filepath.Join("..", "assinador", "target", "assinador-1.0-SNAPSHOT.jar")
+
+	if _, err := os.Stat(jarPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf(
+				"assinador.jar não encontrado.\n→ Execute: cd ..\\assinador && mvn clean package",
+			)
+		}
+
+		return "", fmt.Errorf("erro ao verificar assinador.jar: %w", err)
+	}
+
+	return jarPath, nil
 }

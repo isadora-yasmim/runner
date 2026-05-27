@@ -21,7 +21,10 @@ var startCmd = &cobra.Command{
 			return err
 		}
 
-		jarPath := "..\\assinador\\target\\assinador-1.0-SNAPSHOT.jar"
+		jarPath, err := getAssinadorJarPath()
+		if err != nil {
+			return err
+		}
 
 		command := exec.Command(
 			"java",
