@@ -6,23 +6,23 @@
 - [x] Implementar comando `verify` (simulação de validação)
 - [x] Criar validador de parâmetros
 - [x] Padronizar respostas (formato legível e estruturado)
-- [ ] Criar erros estruturados
+- [x] Criar erros estruturados
 - [x] Criar testes unitários
 
 ## Épico 2 — Servidor HTTP do Assinador
-- [ ] Iniciar servidor HTTP no assinador.jar
-- [ ] Criar endpoint `POST /sign`
-- [ ] Criar endpoint `POST /verify`
-- [ ] Criar endpoint `GET /health`
-- [ ] Testar API com respostas corretas e tratamento de erros
+- [x] Iniciar servidor HTTP no assinador.jar
+- [x] Criar endpoint `POST /sign`
+- [x] Criar endpoint `POST /verify`
+- [x] Criar endpoint `GET /health`
+- [x] Testar API com respostas corretas e tratamento de erros
 
 ## Épico 3 — CLI Assinatura
-- [ ] Criar parser de comandos e subcomandos
-- [ ] Implementar subcomando `sign`
-- [ ] Implementar subcomando `verify`
+- [x] Criar parser de comandos e subcomandos
+- [x] Implementar subcomando `sign`
+- [x] Implementar subcomando `verify`
 - [ ] Implementar escolha de modo (direto ou HTTP)
-- [ ] Formatar saídas para o usuário
-- [ ] Testar integração com assinador.jar (modos direto e HTTP)
+- [x] Formatar saídas para o usuário
+- [x] Testar integração com assinador.jar (modos direto e HTTP)
 
 ## Épico 4 — Simulador HubSaúde
 - [ ] Consultar release mais recente do simulador no GitHub
@@ -34,7 +34,7 @@
 - [ ] Verificar portas antes de iniciar
 
 ## Épico 5 — Provisionamento automático do JDK
-- [ ] Detectar se Java está instalado
+- [x] Detectar se Java está instalado
 - [ ] Checar versão compatível
 - [ ] Baixar JDK por plataforma se necessário
 - [ ] Extrair e disponibilizar JDK local
