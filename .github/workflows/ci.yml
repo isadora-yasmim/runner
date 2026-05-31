@@ -168,9 +168,8 @@ jobs:
           cache-dependency-path: simulador/cli/go.sum
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          # v2.1.0 é compilado com Go 1.26+ — compatível com o go.mod do projeto
           version: v2.1.0
           working-directory: simulador/cli
           args: --timeout=5m
