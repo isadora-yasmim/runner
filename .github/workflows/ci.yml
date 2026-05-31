@@ -171,6 +171,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.2.0
+          install-mode: goinstall
           working-directory: simulador/cli
           args: --timeout=5m
 
