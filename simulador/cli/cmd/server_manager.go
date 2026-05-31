@@ -97,12 +97,12 @@ func checkJavaInstalled() error {
 
 		if runtime.GOOS == "windows" {
 			return fmt.Errorf(
-				"Java não encontrado no PATH.\n→ Instale o JDK 21+ e adicione o caminho 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
+				"java não encontrado no PATH.\n→ instale o JDK 21+ e adicione o caminho 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
 			)
 		}
 
 		return fmt.Errorf(
-			"Java não encontrado no PATH.\n→ Instale o JDK 21+ e configure o PATH corretamente",
+			"java não encontrado no PATH.\n→ instale o JDK 21+ e configure o PATH corretamente",
 		)
 	}
 
