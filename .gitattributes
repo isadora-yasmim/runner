@@ -1,0 +1,18 @@
+# Força LF em todos os arquivos texto — evita conflitos CRLF no CI
+# Windows e Linux ao mesmo tempo.
+* text=auto eol=lf
+
+# Arquivos que devem ser sempre CRLF (ex.: scripts .bat no Windows)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binários — nunca normalizar
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.tar.gz binary
+*.exe binary
