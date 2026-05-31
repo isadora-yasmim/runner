@@ -1,7 +1,7 @@
 # Sistema Runner — CLI de Assinatura Digital Simulada
 
 > Implementação do trabalho prático baseada na especificação disponível em  
-> [kyriosdata/runner](https://github.com/kyriosdata/runner)  
+> [`kyriosdata/runner @ ab4d353`](https://github.com/kyriosdata/runner/tree/ab4d353)  
 
 
 ---
