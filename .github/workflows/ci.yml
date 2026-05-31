@@ -170,7 +170,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.1.0
+          version: v2.2.0
           working-directory: simulador/cli
           args: --timeout=5m
 
