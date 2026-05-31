@@ -14,7 +14,6 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "**.md"
       - "**.puml"
       - "diagramas/**"
@@ -62,8 +61,6 @@ jobs:
       - name: Build e testes (mvn verify)
         run: mvn --batch-mode -e verify
 
-      # Jacoco já está configurado no pom.xml (jacoco.exec presente em target/).
-      # O relatório HTML é gerado em target/site/jacoco/ pela fase verify.
       - name: Publicar relatório de cobertura Jacoco
         if: matrix.os == 'ubuntu-latest' && always()
         uses: actions/upload-artifact@v4
@@ -73,7 +70,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      # Relatórios Surefire (XML + TXT) para visualização na UI do GitHub
       - name: Publicar resultados dos testes
         if: always()
         uses: actions/upload-artifact@v4
@@ -84,11 +80,14 @@ jobs:
           retention-days: 7
 
   # ─────────────────────────────────────────────
-  # 2. Build e testes do módulo Go
+  # 2. Build, lint e testes do módulo Go
   #    Raiz do módulo: simulador/cli/
   #
-  #    go-version-file lê a versão exata do go.mod automaticamente,
-  #    evitando divergência entre o workflow e o projeto.
+  #    go-version-file lê a versão exata do go.mod (ex: 1.26.2),
+  #    evitando divergência entre workflow e projeto.
+  #
+  #    Lint: usa staticcheck instalado via go install com o Go do projeto.
+  #    Substituiu golangci-lint-action que não suporta binários Go 1.26+.
   # ─────────────────────────────────────────────
   go:
     name: Go · ${{ matrix.os }}
@@ -110,16 +109,23 @@ jobs:
         uses: actions/setup-go@v5
         with:
           # Lê a versão exata declarada em simulador/cli/go.mod
-          # Evita divergência entre workflow e projeto (ex: go 1.26.2)
           go-version-file: simulador/cli/go.mod
           cache: true
           cache-dependency-path: simulador/cli/go.sum
 
-      # go vet detecta problemas comuns antes de compilar
+      # go vet: análise estática padrão do Go
       - name: go vet
         run: go vet ./...
 
-      # Compila todos os pacotes — valida que o código compila nas duas plataformas
+      # staticcheck: análise estática avançada, instalada com o Go do projeto
+      # Substitui golangci-lint que não suporta binários pré-compilados Go 1.26+
+      - name: Instalar staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: staticcheck
+        run: staticcheck ./...
+
+      # Compila todos os pacotes nas duas plataformas
       - name: go build
         run: go build -v ./...
 
@@ -128,12 +134,11 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
-      # Windows: testes sem coverprofile — o PowerShell interpreta o flag incorretamente
+      # Windows: sem coverprofile — o PowerShell interpreta o flag incorretamente
       - name: go test (Windows)
         if: matrix.os == 'windows-latest'
         run: go test -v -race ./...
 
-      # Converte coverage.out em HTML — apenas no Linux onde foi gerado
       - name: Gerar relatório de cobertura HTML
         if: matrix.os == 'ubuntu-latest'
         run: go tool cover -html=coverage.out -o coverage.html
@@ -148,36 +153,7 @@ jobs:
           retention-days: 14
 
   # ─────────────────────────────────────────────
-  # 3. Lint Go com golangci-lint
-  #    Usa simulador/cli/golangci.yml (já existente no repo)
-  #    Separado do job de testes para feedback paralelo mais rápido.
-  # ─────────────────────────────────────────────
-  lint-go:
-    name: golangci-lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configurar Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: simulador/cli/go.mod
-          cache: true
-          cache-dependency-path: simulador/cli/go.sum
-
-      # Compila o golangci-lint usando o Go 1.26 já instalado acima.
-      # Evita o erro "go1.24 used to build is lower than targeted go1.26.2"
-      # que ocorre ao usar binários pré-compilados da action.
-      - name: Instalar golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.0
-
-      - name: Executar golangci-lint
-        run: golangci-lint run --timeout=5m
-        working-directory: simulador/cli
-  # ─────────────────────────────────────────────
-  # 4. Validação de mensagens de commit (Conventional Commits)
+  # 3. Validação de mensagens de commit (Conventional Commits)
   #    Roda apenas em Pull Requests.
   # ─────────────────────────────────────────────
   commitlint:
@@ -203,7 +179,7 @@ jobs:
             @commitlint/cli \
             @commitlint/config-conventional
 
-      # ignores: exclui commits de Merge e commits sem ':' que venham
+      # ignores: exclui commits de Merge e commits sem ':' vindos
       # do histórico da branch base (ex: commits de outros colaboradores)
       - name: Criar configuração do commitlint
         run: |
@@ -217,7 +193,6 @@ jobs:
           };
           EOF
 
-      # Valida apenas os commits do PR, não o histórico completo da base
       - name: Validar mensagens de commit
         run: |
           npx commitlint \
