@@ -1,0 +1,207 @@
+# Integração Contínua — Sistema Runner
+#
+# Executa em cada push na branch principal e em todo Pull Request.
+# Roda em ubuntu-latest e windows-latest para validar portabilidade real (E6).
+#
+# Estrutura real do repositório:
+#   simulador/assinador/   — projeto Java (Maven)
+#   simulador/cli/         — projeto Go (CLI)
+#   .github/workflows/     — este arquivo
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "**.puml"
+      - "diagramas/**"
+      - "gerenciamento/**"
+      - "documentacao/**"
+  pull_request:
+    branches: [main]
+
+# Cancela execuções anteriores do mesmo PR para economizar minutos de CI.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1. Build e testes do módulo Java
+  #    Raiz do módulo: simulador/assinador/
+  # ─────────────────────────────────────────────
+  java:
+    name: Java · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    defaults:
+      run:
+        working-directory: simulador/assinador
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          # Aponta para o pom.xml real do módulo
+          cache: maven
+
+      # mvn verify: compile → test → package → verify
+      # --batch-mode suprime prompts interativos (essencial em CI)
+      # -e exibe stack trace em falhas para diagnóstico
+      - name: Build e testes (mvn verify)
+        run: mvn --batch-mode -e verify
+
+      # Jacoco já está configurado no pom.xml (jacoco.exec presente em target/).
+      # O relatório HTML é gerado em target/site/jacoco/ pela fase verify.
+      - name: Publicar relatório de cobertura Jacoco
+        if: matrix.os == 'ubuntu-latest' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-coverage-report
+          path: simulador/assinador/target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Relatórios Surefire (XML + TXT) para visualização na UI do GitHub
+      - name: Publicar resultados dos testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-results-${{ matrix.os }}
+          path: simulador/assinador/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 2. Build, lint e testes do módulo Go
+  #    Raiz do módulo: simulador/cli/
+  # ─────────────────────────────────────────────
+  go:
+    name: Go · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    defaults:
+      run:
+        working-directory: simulador/cli
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+          # Caminho real do go.sum dentro do repositório
+          cache-dependency-path: simulador/cli/go.sum
+
+      # go vet detecta problemas comuns antes de compilar
+      - name: go vet
+        run: go vet ./...
+
+      # Compila todos os pacotes — valida que o código compila nas duas plataformas
+      - name: go build
+        run: go build -v ./...
+
+      # Testes com detector de race conditions e coleta de cobertura
+      - name: go test
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      # Converte coverage.out em HTML — só no Linux para evitar duplicatas
+      - name: Gerar relatório de cobertura HTML
+        if: matrix.os == 'ubuntu-latest'
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Publicar relatório de cobertura Go
+        if: matrix.os == 'ubuntu-latest' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage-report
+          path: simulador/cli/coverage.html
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ─────────────────────────────────────────────
+  # 3. Lint Go com golangci-lint
+  #    Usa simulador/cli/golangci.yml (já existente no repo)
+  #    Separado do job de testes para feedback paralelo mais rápido.
+  # ─────────────────────────────────────────────
+  lint-go:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+          cache-dependency-path: simulador/cli/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          # Aponta para o módulo Go real — lê automaticamente simulador/cli/golangci.yml
+          working-directory: simulador/cli
+          args: --timeout=5m
+
+  # ─────────────────────────────────────────────
+  # 4. Validação de mensagens de commit (Conventional Commits)
+  #    Roda apenas em Pull Requests.
+  # ─────────────────────────────────────────────
+  commitlint:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 necessário para acessar todo o histórico do PR
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar commitlint
+        run: |
+          npm install --save-dev \
+            @commitlint/cli \
+            @commitlint/config-conventional
+
+      - name: Criar configuração do commitlint
+        run: |
+          echo "module.exports = { extends: ['@commitlint/config-conventional'] };" \
+            > commitlint.config.js
+
+      # Valida todos os commits do PR em relação à base (main)
+      - name: Validar mensagens de commit
+        run: |
+          npx commitlint \
+            --from ${{ github.event.pull_request.base.sha }} \
+            --to   ${{ github.event.pull_request.head.sha }} \
+            --verbose
