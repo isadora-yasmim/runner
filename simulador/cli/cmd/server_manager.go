@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -52,15 +53,19 @@ func ensureServerRunning() error {
 func waitForServer() error {
 
 	timeout := time.After(10 * time.Second)
-	tick := time.Tick(500 * time.Millisecond)
+
+	// time.NewTicker + defer Stop() evita vazamento de goroutine (SA1015).
+	// time.Tick() nunca libera o ticker quando a função retorna antes do tick.
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
 
 		case <-timeout:
-			return fmt.Errorf("timeout aguardando inicialização do servidor")
+			return errors.New("timeout aguardando inicialização do servidor")
 
-		case <-tick:
+		case <-ticker.C:
 			if isServerRunning(serverPort) {
 				return nil
 			}
@@ -95,13 +100,14 @@ func checkJavaInstalled() error {
 	err := command.Run()
 	if err != nil {
 
+		// ST1005: strings de erro não devem começar com letra maiúscula.
 		if runtime.GOOS == "windows" {
-			return fmt.Errorf(
-				"java não encontrado no PATH.\n→ instale o JDK 21+ e adicione o caminho 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
+			return errors.New(
+				"java não encontrado no PATH.\n→ instale o JDK 21+ e adicione 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
 			)
 		}
 
-		return fmt.Errorf(
+		return errors.New(
 			"java não encontrado no PATH.\n→ instale o JDK 21+ e configure o PATH corretamente",
 		)
 	}
@@ -115,8 +121,8 @@ func getAssinadorJarPath() (string, error) {
 
 	if _, err := os.Stat(jarPath); err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf(
-				"assinador.jar não encontrado.\n→ Execute: cd ..\\assinador && mvn clean package",
+			return "", errors.New(
+				"assinador.jar não encontrado.\n→ execute: cd ..\\assinador && mvn clean package",
 			)
 		}
 
