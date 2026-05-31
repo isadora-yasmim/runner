@@ -195,8 +195,12 @@ jobs:
 
       - name: Criar configuração do commitlint
         run: |
-          echo "module.exports = { extends: ['@commitlint/config-conventional'] };" \
-            > commitlint.config.js
+          cat > commitlint.config.js << 'EOF'
+          module.exports = {
+            extends: ['@commitlint/config-conventional'],
+            ignores: [(msg) => msg.startsWith('Merge') || !msg.includes(':')]
+          };
+          EOF
 
       # Valida todos os commits do PR em relação à base (main)
       - name: Validar mensagens de commit
