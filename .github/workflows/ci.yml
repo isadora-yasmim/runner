@@ -54,7 +54,6 @@ jobs:
         with:
           java-version: "21"
           distribution: temurin
-          # Aponta para o pom.xml real do módulo
           cache: maven
 
       # mvn verify: compile → test → package → verify
@@ -85,8 +84,11 @@ jobs:
           retention-days: 7
 
   # ─────────────────────────────────────────────
-  # 2. Build, lint e testes do módulo Go
+  # 2. Build e testes do módulo Go
   #    Raiz do módulo: simulador/cli/
+  #
+  #    go-version-file lê a versão exata do go.mod automaticamente,
+  #    evitando divergência entre o workflow e o projeto.
   # ─────────────────────────────────────────────
   go:
     name: Go · ${{ matrix.os }}
@@ -104,12 +106,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Go 1.25
+      - name: Configurar Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          # Lê a versão exata declarada em simulador/cli/go.mod
+          # Evita divergência entre workflow e projeto (ex: go 1.26.2)
+          go-version-file: simulador/cli/go.mod
           cache: true
-          # Caminho real do go.sum dentro do repositório
           cache-dependency-path: simulador/cli/go.sum
 
       # go vet detecta problemas comuns antes de compilar
@@ -120,11 +123,17 @@ jobs:
       - name: go build
         run: go build -v ./...
 
-      # Testes com detector de race conditions e coleta de cobertura
-      - name: go test
+      # Linux: testes com race detector e coleta de cobertura
+      - name: go test (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
-      # Converte coverage.out em HTML — só no Linux para evitar duplicatas
+      # Windows: testes sem coverprofile — o PowerShell interpreta o flag incorretamente
+      - name: go test (Windows)
+        if: matrix.os == 'windows-latest'
+        run: go test -v -race ./...
+
+      # Converte coverage.out em HTML — apenas no Linux onde foi gerado
       - name: Gerar relatório de cobertura HTML
         if: matrix.os == 'ubuntu-latest'
         run: go tool cover -html=coverage.out -o coverage.html
@@ -151,18 +160,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Go 1.25
+      - name: Configurar Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version-file: simulador/cli/go.mod
           cache: true
           cache-dependency-path: simulador/cli/go.sum
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
-          # Aponta para o módulo Go real — lê automaticamente simulador/cli/golangci.yml
+          # v2.1.0 é compilado com Go 1.26+ — compatível com o go.mod do projeto
+          version: v2.1.0
           working-directory: simulador/cli
           args: --timeout=5m
 
@@ -179,8 +188,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 necessário para acessar todo o histórico do PR
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -193,16 +202,21 @@ jobs:
             @commitlint/cli \
             @commitlint/config-conventional
 
+      # ignores: exclui commits de Merge e commits sem ':' que venham
+      # do histórico da branch base (ex: commits de outros colaboradores)
       - name: Criar configuração do commitlint
         run: |
           cat > commitlint.config.js << 'EOF'
           module.exports = {
             extends: ['@commitlint/config-conventional'],
-            ignores: [(msg) => msg.startsWith('Merge') || !msg.includes(':')]
+            ignores: [
+              (msg) => msg.startsWith('Merge'),
+              (msg) => !msg.includes(':')
+            ]
           };
           EOF
 
-      # Valida todos os commits do PR em relação à base (main)
+      # Valida apenas os commits do PR, não o histórico completo da base
       - name: Validar mensagens de commit
         run: |
           npx commitlint \
