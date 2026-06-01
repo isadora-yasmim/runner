@@ -11,20 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// SignRequest representa o corpo da requisição POST /sign.
 type SignRequest struct {
 	Document string `json:"document"`
 	TokenPin string `json:"tokenPin"`
 }
 
+// SignData contém os campos retornados em caso de assinatura bem-sucedida.
 type SignData struct {
 	SignatureHash string `json:"signatureHash"`
 	Algorithm     string `json:"algorithm"`
-}
-
-type ResponseOutput struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
 }
 
 var signDocument string
@@ -34,19 +30,13 @@ var signCmd = &cobra.Command{
 	Use:   "sign",
 	Short: "Simula a criação de uma assinatura digital",
 	Run: func(cmd *cobra.Command, args []string) {
-
-		err := ensureServerRunning()
-		if err != nil {
+		if err := ensureServerRunning(); err != nil {
 			fmt.Println("❌ Erro ao garantir execução do assinador")
 			fmt.Println(err)
 			os.Exit(1)
-		}		
-
-		request := SignRequest{
-			Document: signDocument,
-			TokenPin: signTokenPin,
 		}
 
+		request := SignRequest{Document: signDocument, TokenPin: signTokenPin}
 		body, err := json.Marshal(request)
 		if err != nil {
 			fmt.Println("❌ Erro ao gerar requisição HTTP")
@@ -54,13 +44,7 @@ var signCmd = &cobra.Command{
 		}
 
 		url := fmt.Sprintf("http://localhost:%d/sign", serverPort)
-
-		resp, err := http.Post(
-			url,
-			"application/json",
-			bytes.NewBuffer(body),
-		)
-
+		resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 		if err != nil {
 			fmt.Println("❌ Erro ao conectar com o assinador HTTP")
 			fmt.Println(err)
@@ -75,7 +59,6 @@ var signCmd = &cobra.Command{
 		}
 
 		var response ResponseOutput
-
 		if err := json.Unmarshal(responseBody, &response); err != nil {
 			fmt.Println("❌ Erro ao interpretar resposta")
 			fmt.Println(string(responseBody))
@@ -83,13 +66,10 @@ var signCmd = &cobra.Command{
 		}
 
 		if response.Success {
-			fmt.Println("✔ Assinatura criada com sucesso")
-
+			fmt.Println("✔ Assinatura criada com sucesso\n")
 			dataBytes, _ := json.Marshal(response.Data)
-
 			var data SignData
 			json.Unmarshal(dataBytes, &data)
-
 			fmt.Println("→ Hash:", data.SignatureHash)
 			fmt.Println("→ Algoritmo:", data.Algorithm)
 		} else {
@@ -102,23 +82,8 @@ var signCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(signCmd)
-
-	signCmd.Flags().StringVarP(
-		&signDocument,
-		"document",
-		"d",
-		"",
-		"Documento",
-	)
-
-	signCmd.Flags().StringVarP(
-		&signTokenPin,
-		"token-pin",
-		"t",
-		"",
-		"PIN",
-	)
-
+	signCmd.Flags().StringVarP(&signDocument, "document", "d", "", "Documento")
+	signCmd.Flags().StringVarP(&signTokenPin, "token-pin", "t", "", "PIN")
 	signCmd.MarkFlagRequired("document")
 	signCmd.MarkFlagRequired("token-pin")
 }
