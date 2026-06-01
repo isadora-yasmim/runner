@@ -84,7 +84,47 @@ func checkJavaInstalled() error {
 	return nil
 }
 
+// jarCandidates retorna a lista ordenada de caminhos onde o assinador.jar
+// pode estar, combinando referências ao executável compilado e ao diretório
+// de trabalho atual (necessário para `go run`).
+func jarCandidates() []string {
+	// Nomes aceitos do JAR (com e sem versão no nome)
+	jarNames := []string{"assinador.jar", "assinador-1.0-SNAPSHOT.jar"}
+
+	var dirs []string
+
+	// 1. Relativo ao binário compilado (produção: `go build`)
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		dirs = append(dirs,
+			execDir,
+			filepath.Join(execDir, "..", "assinador"),
+			filepath.Join(execDir, "..", "assinador", "target"),
+		)
+	}
+
+	// 2. Relativo ao diretório de trabalho atual (desenvolvimento: `go run`)
+	if cwd, err := os.Getwd(); err == nil {
+		dirs = append(dirs,
+			cwd,
+			filepath.Join(cwd, "..", "assinador"),
+			filepath.Join(cwd, "..", "assinador", "target"),
+			filepath.Join(cwd, "..", "..", "assinador"),
+			filepath.Join(cwd, "..", "..", "assinador", "target"),
+		)
+	}
+
+	var candidates []string
+	for _, dir := range dirs {
+		for _, name := range jarNames {
+			candidates = append(candidates, filepath.Clean(filepath.Join(dir, name)))
+		}
+	}
+	return candidates
+}
+
 func getAssinadorJarPath() (string, error) {
+	// Variável de ambiente tem prioridade absoluta
 	if envPath := os.Getenv("ASSINADOR_JAR"); envPath != "" {
 		if _, err := os.Stat(envPath); err == nil {
 			slog.Debug("usando JAR de ASSINADOR_JAR", "caminho", envPath)
@@ -96,27 +136,14 @@ func getAssinadorJarPath() (string, error) {
 		)
 	}
 
-	execPath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("não foi possível determinar o diretório do executável: %w", err)
-	}
-	execDir := filepath.Dir(execPath)
-
-	candidates := []string{
-		filepath.Join(execDir, "assinador.jar"),
-		filepath.Join(execDir, "..", "assinador", "assinador.jar"),
-		filepath.Join(execDir, "..", "assinador", "target", "assinador.jar"),
-	}
-
-	for _, c := range candidates {
-		clean := filepath.Clean(c)
-		if _, err := os.Stat(clean); err == nil {
-			slog.Debug("JAR encontrado", "caminho", clean)
-			return clean, nil
+	for _, c := range jarCandidates() {
+		if _, err := os.Stat(c); err == nil {
+			slog.Debug("JAR encontrado", "caminho", c)
+			return c, nil
 		}
 	}
 
 	return "", fmt.Errorf(
-		"assinador.jar não encontrado\n→ Defina: export ASSINADOR_JAR=/caminho/para/assinador.jar\n→ Ou compile: cd assinador && mvn clean package -DskipTests",
+		"assinador.jar não encontrado\n→ Defina: set ASSINADOR_JAR=C:\\caminho\\para\\assinador.jar  (Windows)\n→ Ou compile: cd ..\\assinador && mvn clean package -DskipTests",
 	)
 }
