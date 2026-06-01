@@ -1,0 +1,73 @@
+# Configuração do golangci-lint para o CLI Go (assinatura/)
+# Referência: https://golangci-lint.run/usage/configuration/
+#
+# Coloque este arquivo em assinatura/.golangci.yml
+
+version: "2"
+
+run:
+  timeout: 5m
+  # Garante que o linter use a mesma versão do Go declarada no go.mod
+  go: "1.25"
+
+linters:
+  # Desativa todos os linters e ativa somente os listados abaixo
+  # (mais previsível do que trabalhar com a lista de defaults que muda entre versões)
+  disable-all: true
+  enable:
+    # Erros reais
+    - errcheck        # Verifica retornos de erro ignorados
+    - gosimple        # Simplificações idiomáticas do Go
+    - govet           # Equivalente a go vet
+    - ineffassign     # Atribuições que nunca são usadas
+    - staticcheck     # Análise estática avançada (substitui megacheck)
+    - unused          # Código não utilizado
+
+    # Boas práticas
+    - gofmt           # Formatação padrão gofmt
+    - goimports       # Organização de imports
+    - misspell        # Erros de ortografia em comentários/strings
+    - noctx           # Uso correto de context.Context em funções HTTP
+    - exhaustive      # switch em enums devem cobrir todos os casos
+
+    # Segurança
+    - gosec           # Detecta problemas de segurança comuns
+
+    # Estilo
+    - revive          # Substituto moderno do golint
+
+linters-settings:
+  errcheck:
+    # Não ignora erros de Close() e outros comuns — força tratamento explícito
+    check-type-assertions: true
+    check-blank: true
+
+  gosec:
+    # Exclui G304 (file path provided as taint input) — comum e controlado no nosso caso
+    excludes:
+      - G304
+
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - "checkPrivateReceivers"
+          - "sayRepetitiveInsteadOfStutters"
+      - name: var-naming
+      - name: error-return
+      - name: error-strings
+
+  misspell:
+    locale: US
+
+issues:
+  # Não limita o número de issues reportadas (padrão é 50)
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Testes têm regras menos rígidas
+    - path: "_test\\.go"
+      linters:
+        - gosec
+        - errcheck

@@ -34,8 +34,8 @@
 
 ### 🟦 Semana 7 — Simulador + Provisionamento do JDK
 - [ ] Download do `simulador.jar`
-- [ ] Comandos start/stop/status
-- [ ] Deteccao do Java
+- [x] Comandos start/stop/status
+- [x] Deteccao do Java
 - [ ] Download automatico do JDK
 
 ### 🟦 Semana 8 — Testes e integracao geral

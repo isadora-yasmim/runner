@@ -1,0 +1,201 @@
+# Integração Contínua — Sistema Runner
+#
+# Executa em cada push na branch principal e em todo Pull Request.
+# Roda em ubuntu-latest e windows-latest para validar portabilidade real (E6).
+#
+# Estrutura real do repositório:
+#   simulador/assinador/   — projeto Java (Maven)
+#   simulador/cli/         — projeto Go (CLI)
+#   .github/workflows/     — este arquivo
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "**.puml"
+      - "diagramas/**"
+      - "gerenciamento/**"
+      - "documentacao/**"
+  pull_request:
+    branches: [main]
+
+# Cancela execuções anteriores do mesmo PR para economizar minutos de CI.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1. Build e testes do módulo Java
+  #    Raiz do módulo: simulador/assinador/
+  # ─────────────────────────────────────────────
+  java:
+    name: Java · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    defaults:
+      run:
+        working-directory: simulador/assinador
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      # mvn verify: compile → test → package → verify
+      # --batch-mode suprime prompts interativos (essencial em CI)
+      # -e exibe stack trace em falhas para diagnóstico
+      - name: Build e testes (mvn verify)
+        run: mvn --batch-mode -e verify
+
+      - name: Publicar relatório de cobertura Jacoco
+        if: matrix.os == 'ubuntu-latest' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-coverage-report
+          path: simulador/assinador/target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publicar resultados dos testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-results-${{ matrix.os }}
+          path: simulador/assinador/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # 2. Build, lint e testes do módulo Go
+  #    Raiz do módulo: simulador/cli/
+  #
+  #    go-version-file lê a versão exata do go.mod (ex: 1.26.2),
+  #    evitando divergência entre workflow e projeto.
+  #
+  #    Lint: usa staticcheck instalado via go install com o Go do projeto.
+  #    Substituiu golangci-lint-action que não suporta binários Go 1.26+.
+  # ─────────────────────────────────────────────
+  go:
+    name: Go · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    defaults:
+      run:
+        working-directory: simulador/cli
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          # Lê a versão exata declarada em simulador/cli/go.mod
+          go-version-file: simulador/cli/go.mod
+          cache: true
+          cache-dependency-path: simulador/cli/go.sum
+
+      # go vet: análise estática padrão do Go
+      - name: go vet
+        run: go vet ./...
+
+      # staticcheck: análise estática avançada, instalada com o Go do projeto
+      # Substitui golangci-lint que não suporta binários pré-compilados Go 1.26+
+      - name: Instalar staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: staticcheck
+        run: staticcheck ./...
+
+      # Compila todos os pacotes nas duas plataformas
+      - name: go build
+        run: go build -v ./...
+
+      # Linux: testes com race detector e coleta de cobertura
+      - name: go test (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      # Windows: sem coverprofile — o PowerShell interpreta o flag incorretamente
+      - name: go test (Windows)
+        if: matrix.os == 'windows-latest'
+        run: go test -v -race ./...
+
+      - name: Gerar relatório de cobertura HTML
+        if: matrix.os == 'ubuntu-latest'
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Publicar relatório de cobertura Go
+        if: matrix.os == 'ubuntu-latest' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage-report
+          path: simulador/cli/coverage.html
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ─────────────────────────────────────────────
+  # 3. Validação de mensagens de commit (Conventional Commits)
+  #    Roda apenas em Pull Requests.
+  # ─────────────────────────────────────────────
+  commitlint:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar commitlint
+        run: |
+          npm install --save-dev \
+            @commitlint/cli \
+            @commitlint/config-conventional
+
+      # ignores: exclui commits de Merge e commits sem ':' vindos
+      # do histórico da branch base (ex: commits de outros colaboradores)
+      - name: Criar configuração do commitlint
+        run: |
+          cat > commitlint.config.js << 'EOF'
+          module.exports = {
+            extends: ['@commitlint/config-conventional'],
+            ignores: [
+              (msg) => msg.startsWith('Merge'),
+              (msg) => !msg.includes(':')
+            ]
+          };
+          EOF
+
+      - name: Validar mensagens de commit
+        run: |
+          npx commitlint \
+            --from ${{ github.event.pull_request.base.sha }} \
+            --to   ${{ github.event.pull_request.head.sha }} \
+            --verbose
