@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -40,17 +41,19 @@ func ensureServerRunning() error {
 
 func waitForServer() error {
 	timeout := time.After(10 * time.Second)
-	tick := time.NewTicker(500 * time.Millisecond)
-	defer tick.Stop()
+
+	// time.NewTicker + defer Stop() evita vazamento de goroutine (SA1015).
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-timeout:
 			return fmt.Errorf(
-				"timeout aguardando servidor na porta %d\n→ Verifique se a porta está disponível e se o JAR é válido",
+				"timeout aguardando servidor na porta %d\n→ verifique se a porta está disponível e se o JAR é válido",
 				serverPort,
 			)
-		case <-tick.C:
+		case <-ticker.C:
 			if isServerRunning(serverPort) {
 				slog.Debug("servidor pronto", "porta", serverPort)
 				return nil
@@ -72,13 +75,14 @@ func isServerRunning(port int) bool {
 
 func checkJavaInstalled() error {
 	if err := exec.Command("java", "-version").Run(); err != nil {
+		// ST1005: strings de erro não devem começar com letra maiúscula.
 		if runtime.GOOS == "windows" {
-			return fmt.Errorf(
-				"Java não encontrado no PATH\n→ Instale o JDK 21+: https://adoptium.net\n→ Adicione ao PATH: C:\\Program Files\\Java\\jdk-XX\\bin",
+			return errors.New(
+				"java não encontrado no PATH\n→ instale o JDK 21+: https://adoptium.net\n→ adicione ao PATH: C:\\Program Files\\Java\\jdk-XX\\bin",
 			)
 		}
-		return fmt.Errorf(
-			"Java não encontrado no PATH\n→ Instale o JDK 21+: sudo apt install openjdk-21-jdk\n→ Após instalar, reinicie o terminal",
+		return errors.New(
+			"java não encontrado no PATH\n→ instale o JDK 21+: sudo apt install openjdk-21-jdk\n→ após instalar, reinicie o terminal",
 		)
 	}
 	return nil
@@ -130,8 +134,9 @@ func getAssinadorJarPath() (string, error) {
 			slog.Debug("usando JAR de ASSINADOR_JAR", "caminho", envPath)
 			return envPath, nil
 		}
+		// ST1005: string de erro em minúsculo.
 		return "", fmt.Errorf(
-			"JAR não encontrado em ASSINADOR_JAR=%s\n→ Verifique se o arquivo existe",
+			"assinador.jar não encontrado em ASSINADOR_JAR=%s\n→ verifique se o arquivo existe",
 			envPath,
 		)
 	}
@@ -143,7 +148,8 @@ func getAssinadorJarPath() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf(
-		"assinador.jar não encontrado\n→ Defina: set ASSINADOR_JAR=C:\\caminho\\para\\assinador.jar  (Windows)\n→ Ou compile: cd ..\\assinador && mvn clean package -DskipTests",
+	// ST1005: string de erro em minúsculo.
+	return "", errors.New(
+		"assinador.jar não encontrado\n→ defina: set ASSINADOR_JAR=C:\\caminho\\para\\assinador.jar  (Windows)\n→ ou compile: cd ..\\assinador && mvn clean package -DskipTests",
 	)
 }
