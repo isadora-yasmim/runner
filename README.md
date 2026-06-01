@@ -3,7 +3,6 @@
 > Implementação do trabalho prático baseada na especificação disponível em  
 > [`kyriosdata/runner @ ab4d353`](https://github.com/kyriosdata/runner/tree/ab4d353)  
 
-
 ---
 
 ## O que é este projeto
@@ -39,7 +38,7 @@ O CLI (`assinatura`) se comunica com o `assinador.jar` de dois modos:
 ### 1. Compilar o assinador.jar (Java)
 
 ```bash
-cd projetos/assinador-java
+cd simulador/assinador
 mvn clean package
 ```
 
@@ -48,13 +47,14 @@ O artefato gerado estará em `target/assinador.jar`.
 ### 2. Compilar o CLI (Go)
 
 ```bash
-cd projetos/assinatura-cli
+cd simulador/cli
 go build -o assinatura ./...
 ```
 
 Para compilar com versão e SHA do commit embutidos (recomendado para releases):
 
 ```bash
+cd simulador/cli
 go build \
   -ldflags "-X cmd.Version=$(git describe --tags) -X cmd.Commit=$(git rev-parse --short HEAD)" \
   -o assinatura \
@@ -162,7 +162,7 @@ e erros vão para o `stderr`. Exemplo de resposta de sucesso:
 ### Testes unitários do assinador.jar
 
 ```bash
-cd projetos/assinador-java
+cd simulador/assinador
 mvn test
 ```
 
@@ -176,7 +176,7 @@ mvn verify
 ### Testes de integração e de contrato CLI ↔ JAR (Go)
 
 ```bash
-cd projetos/assinatura-cli
+cd simulador/cli
 go test ./... -v
 ```
 
@@ -199,42 +199,63 @@ make test
 
 ```
 .
-├── projetos/
-│   ├── assinador-java/          # assinador.jar — componente Java
+├── simulador/
+│   ├── assinador/                   # assinador.jar — componente Java
 │   │   ├── src/
 │   │   │   ├── main/java/br/go/ses/assinador/
-│   │   │   │   ├── commands/    # SignCommand, VerifyCommand, ServerCommand
-│   │   │   │   ├── http/        # AssinadorHttpServer
-│   │   │   │   ├── model/       # ResponseOutput, SignatureData
-│   │   │   │   └── util/        # ParameterValidator, JsonUtil
-│   │   │   └── test/java/       # Testes unitários e de integração
+│   │   │   │   ├── Main.java
+│   │   │   │   ├── commands/        # SignCommand, VerifyCommand, ServerCommand
+│   │   │   │   ├── http/            # AssinadorHttpServer
+│   │   │   │   ├── model/           # ResponseOutput, SignatureData
+│   │   │   │   └── util/            # ParameterValidator, JsonUtil
+│   │   │   └── test/java/           # Testes unitários e de integração
 │   │   └── pom.xml
-│   └── assinatura-cli/          # CLI Go
+│   └── cli/                         # CLI Go
+│       ├── main.go
+│       ├── go.mod
+│       ├── go.sum
+│       ├── golangci.yml
+│       ├── LICENSE
 │       ├── cmd/
-│       │   ├── root.go          # Comando raiz e flags globais
-│       │   ├── sign.go          # Subcomando sign
-│       │   ├── verify.go        # Subcomando verify
-│       │   ├── start.go         # Subcomando start
-│       │   ├── stop.go          # Subcomando stop
-│       │   ├── status.go        # Subcomando status
-│       │   ├── version.go       # Subcomando version
-│       │   └── server_manager.go # Lógica de ciclo de vida do servidor
-│       └── main.go
-├── docs/
-│   └── adr/                     # Architecture Decision Records
-│       ├── 001-cobra-cli.md
-│       ├── 002-porta-padrao.md
-│       └── 003-modo-servidor-default.md
+│       │   ├── root.go              # Comando raiz e flags globais
+│       │   ├── sign.go              # Subcomando sign
+│       │   ├── verify.go            # Subcomando verify
+│       │   ├── start.go             # Subcomando start
+│       │   ├── stop.go              # Subcomando stop
+│       │   ├── status.go            # Subcomando status
+│       │   ├── version.go           # Subcomando version
+│       │   └── server_manager.go   # Lógica de ciclo de vida do servidor
+│       └── internal/
+│           └── executor/
+│               └── java_executor.go
+├── documentacao/
+│   ├── especificacao.md
+│   ├── design.md
+│   ├── definicoes.md
+│   ├── pipeline.md
+│   ├── assinador/                   # Guias do componente Java
+│   ├── cli/                         # Guias do CLI Go
+│   └── servidor/                    # Guias do modo servidor HTTP
+├── diagramas/
+│   ├── c4.puml
+│   ├── sequencia.puml
+│   ├── sequenciahttp.puml
+│   └── imagens/                     # SVGs gerados a partir dos .puml
+├── gerenciamento/
+│   ├── backlog.md
+│   ├── cronograma-execucao.md
+│   ├── matriz-rastreabilidade.md
+│   └── plano-revisitado-v2.md
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml               # Build + testes em Ubuntu e Windows
-│       └── release.yml          # Binários multiplataforma + Cosign
+│       ├── ci.yml                   # Build + testes em Ubuntu e Windows
+│       └── release.yml              # Binários multiplataforma + Cosign
 ├── .gitignore
 ├── .gitattributes
-├── LICENSE
-├── Makefile
 └── README.md
 ```
+
+> **Pendente:** `docs/adr/` (ADRs — issue #3), `Makefile` (issue #14) e `LICENSE` na raiz (issue #4).
 
 ---
 
@@ -257,7 +278,7 @@ Usuário → CLI (Go) ──HTTP──▶ assinador.jar (HTTP server)
                    ──subprocess──▶ assinador.jar (modo local)
 ```
 
-Consulte os diagramas em [`docs/`](./docs/) para a visão C4 e os fluxos de sequência.
+Consulte os diagramas em [`diagramas/`](./diagramas/) para a visão C4 e os fluxos de sequência.
 
 ---
 
