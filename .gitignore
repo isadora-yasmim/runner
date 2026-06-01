@@ -1,2 +1,94 @@
-target/
+# =============================================================================
+# .gitignore — Sistema Runner
+# Stacks: Java 21 (Maven) + Go 1.25 + GitHub Actions + VS Code / IntelliJ
+# =============================================================================
+
+
+# =============================================================================
+# JAVA / MAVEN
+# simulador/assinador/
+# =============================================================================
+
+# Diretório de build do Maven — JARs, classes, relatórios, jacoco.exec, etc.
+simulador/assinador/target/
+
+# Classes Java avulsas fora do Maven (ex: geradas na raiz por engano)
 *.class
+
+
+# =============================================================================
+# GO
+# simulador/cli/
+# =============================================================================
+
+# Binários compilados do CLI (Linux/macOS sem extensão, Windows com .exe)
+simulador/cli/assinatura
+simulador/cli/assinatura.exe
+
+# Relatórios de cobertura gerados por 'go test -coverprofile'
+simulador/cli/coverage.out
+simulador/cli/coverage.html
+
+# Pasta de release local gerada manualmente ou por scripts
+dist/
+
+
+# =============================================================================
+# IDEs E EDITORES
+# =============================================================================
+
+# VS Code — configurações de usuário e workspace local
+# (settings.json está versionado intencionalmente; ignore apenas os arquivos
+#  gerados automaticamente pelo editor que não fazem parte do projeto)
+.vscode/*.log
+.vscode/extensions.json
+
+# IntelliJ IDEA / GoLand
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# NetBeans
+nbproject/
+nbbuild/
+nbdist/
+nb-configuration.xml
+
+
+# =============================================================================
+# SISTEMA OPERACIONAL
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+
+# =============================================================================
+# TEMPORÁRIOS E LOGS
+# =============================================================================
+
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+
+estrutura.txt

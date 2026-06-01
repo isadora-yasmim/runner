@@ -1,0 +1,269 @@
+# Pipeline de Release — Sistema Runner
+#
+# Acionado ao criar uma tag semântica no formato vX.Y.Z (ex.: v1.0.0).
+# Produz:
+#   - Binários Go compilados para linux/amd64, windows/amd64 e darwin/amd64
+#   - assinador.jar (fat JAR)
+#   - checksums SHA256 de todos os artefatos
+#   - Assinaturas Cosign (.sig + .pem) para verificação de autenticidade
+#
+# Estrutura real do repositório:
+#   simulador/assinador/   — projeto Java (Maven)
+#   simulador/cli/         — projeto Go (CLI)
+#
+# Convenção de nomenclatura dos binários Go:
+#   assinatura-<versão>-<os>-<arch>[.exe]
+#
+# Para acionar: git tag v1.0.0 && git push origin v1.0.0
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+# Permissões necessárias:
+# - contents:write  → criar GitHub Release e fazer upload de assets
+# - id-token:write  → autenticação OIDC para Cosign (keyless signing)
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1. Build do fat JAR
+  #    Raiz do módulo: simulador/assinador/
+  #
+  #    ATENÇÃO: o pom.xml atual gera assinador-1.0-SNAPSHOT.jar.
+  #    Adicione <finalName>assinador</finalName> no maven-shade-plugin
+  #    para gerar sempre assinador.jar, independente da versão.
+  #    Enquanto isso não for feito, o step de rename abaixo cobre o caso.
+  # ─────────────────────────────────────────────
+  build-jar:
+    name: Build assinador.jar
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: simulador/assinador
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      # Executa testes antes de publicar — release só sai com testes verdes
+      - name: Build e testes (mvn package)
+        run: mvn --batch-mode -e package -DskipTests=false
+
+      # Padroniza o nome do JAR para 'assinador.jar' independente da versão.
+      # Quando o pom.xml tiver <finalName>assinador</finalName>, este step
+      # pode ser removido (mv não vai encontrar o padrão com versão).
+      - name: Padronizar nome do JAR
+        run: |
+          JAR=$(ls target/assinador-*.jar | grep -v original | head -1)
+          echo "JAR encontrado: ${JAR}"
+          mv "${JAR}" target/assinador.jar
+          ls -lh target/assinador.jar
+
+      - name: Upload do JAR como artifact interno
+        uses: actions/upload-artifact@v4
+        with:
+          name: assinador-jar
+          path: simulador/assinador/target/assinador.jar
+          if-no-files-found: error
+          retention-days: 1
+
+  # ─────────────────────────────────────────────
+  # 2. Cross-compilation do CLI Go
+  #    Raiz do módulo: simulador/cli/
+  # ─────────────────────────────────────────────
+  build-go:
+    name: Build Go · ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: ""
+          - goos: windows
+            goarch: amd64
+            suffix: ".exe"
+          - goos: darwin
+            goarch: amd64
+            suffix: ""
+
+    defaults:
+      run:
+        working-directory: simulador/cli
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+          cache-dependency-path: simulador/cli/go.sum
+
+      # Versão e SHA curto do commit são injetados via ldflags.
+      # Isso permite que 'assinatura version' retorne algo rastreável:
+      #   assinatura v1.0.0 (abc1234)
+      #
+      # ATENÇÃO: ajuste o caminho do módulo abaixo conforme declarado
+      # no simulador/cli/go.mod (campo 'module').
+      - name: Compilar binário
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          VERSION="${{ github.ref_name }}"
+          COMMIT=$(git rev-parse --short HEAD)
+
+          # Lê o module path real do go.mod para injetar nas ldflags
+          MODULE=$(head -1 go.mod | awk '{print $2}')
+          echo "Módulo Go: ${MODULE}"
+
+          BINARY="assinatura-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
+
+          go build \
+            -ldflags "-X '${MODULE}/cmd.Version=${VERSION}' \
+                      -X '${MODULE}/cmd.Commit=${COMMIT}'" \
+            -o "${BINARY}" \
+            .
+
+          echo "BINARY=${BINARY}" >> "$GITHUB_ENV"
+          ls -lh "${BINARY}"
+
+      - name: Upload do binário como artifact interno
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: simulador/cli/${{ env.BINARY }}
+          if-no-files-found: error
+          retention-days: 1
+
+  # ─────────────────────────────────────────────
+  # 3. Publicação: checksums + Cosign + GitHub Release
+  # ─────────────────────────────────────────────
+  publish:
+    name: Publicar Release
+    runs-on: ubuntu-latest
+    needs: [build-jar, build-go]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Baixa todos os binários Go de uma vez
+      - name: Baixar binários Go
+        uses: actions/download-artifact@v4
+        with:
+          pattern: go-binary-*
+          path: dist/
+          merge-multiple: true
+
+      # Baixa o fat JAR
+      - name: Baixar assinador.jar
+        uses: actions/download-artifact@v4
+        with:
+          name: assinador-jar
+          path: dist/
+
+      # Lista artefatos para diagnóstico em caso de falha
+      - name: Listar artefatos em dist/
+        run: ls -lh dist/
+
+      # Gera um único arquivo de checksums para todos os artefatos.
+      # Formato compatível com 'sha256sum --check'.
+      - name: Gerar checksums SHA256
+        working-directory: dist
+        run: |
+          sha256sum * > "checksums-${{ github.ref_name }}.txt"
+          echo "=== Checksums gerados ==="
+          cat "checksums-${{ github.ref_name }}.txt"
+
+      - name: Instalar Cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Assina cada artefato individualmente com Cosign keyless (OIDC).
+      # Gera para cada arquivo:
+      #   <artefato>.sig  — assinatura
+      #   <artefato>.pem  — certificado com identidade OIDC
+      - name: Assinar artefatos com Cosign
+        working-directory: dist
+        env:
+          COSIGN_YES: "true"
+        run: |
+          for f in assinatura-* assinador.jar; do
+            echo "Assinando: ${f}"
+            cosign sign-blob \
+              --output-signature "${f}.sig" \
+              --output-certificate "${f}.pem" \
+              "${f}"
+          done
+          echo "=== Assinaturas geradas ==="
+          ls *.sig *.pem
+
+      # Gera notas de release com instruções de verificação para o usuário final
+      - name: Gerar notas de release
+        run: |
+          cat > release-notes.md << 'EOF'
+          ## Sistema Runner ${{ github.ref_name }}
+
+          ### Downloads
+
+          | Plataforma       | Arquivo                                               |
+          |-----------------|-------------------------------------------------------|
+          | Linux (amd64)   | `assinatura-${{ github.ref_name }}-linux-amd64`       |
+          | Windows (amd64) | `assinatura-${{ github.ref_name }}-windows-amd64.exe` |
+          | macOS (amd64)   | `assinatura-${{ github.ref_name }}-darwin-amd64`      |
+          | Assinador (JAR) | `assinador.jar`                                       |
+
+          ### Verificar integridade
+
+          **SHA256:**
+          ```bash
+          sha256sum --check checksums-${{ github.ref_name }}.txt
+          ```
+
+          **Cosign (keyless):**
+          ```bash
+          cosign verify-blob \
+            --certificate     <artefato>.pem \
+            --signature       <artefato>.sig \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/*" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            <artefato>
+          ```
+
+          **Commit:** `${{ github.sha }}`
+          EOF
+
+      - name: Criar GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Sistema Runner ${{ github.ref_name }}"
+          body_path: release-notes.md
+          draft: false
+          # Tags com sufixo (v1.0.0-beta) são marcadas como pré-release automaticamente
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/assinatura-*
+            dist/assinador.jar
+            dist/checksums-*.txt
+            dist/*.sig
+            dist/*.pem
