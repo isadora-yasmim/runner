@@ -17,19 +17,50 @@ import java.util.Map;
 
 public class AssinadorHttpServer {
 
-    private final int port;
+    private final int requestedPort;
     private HttpServer server;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private static final String MOCK_SIGNATURE =
             "mock_hash_abc123_base64_encoded_signature_simulated";
 
+    /**
+     * Quando true, o endpoint /stop encerra apenas o HttpServer sem chamar
+     * System.exit(). Usado exclusivamente em testes para evitar que a JVM
+     * forkeada do Surefire seja morta prematuramente.
+     */
+    private boolean testMode = false;
+
+    /**
+     * Cria o servidor na porta indicada.
+     * Passe 0 para deixar o SO escolher uma porta livre (útil em testes).
+     */
     public AssinadorHttpServer(int port) {
-        this.port = port;
+        this.requestedPort = port;
+    }
+
+    /**
+     * Ativa o modo teste: /stop encerra o HttpServer mas não chama System.exit().
+     * Deve ser chamado antes de start().
+     */
+    public AssinadorHttpServer withTestMode() {
+        this.testMode = true;
+        return this;
+    }
+
+    /**
+     * Retorna a porta real em que o servidor está ouvindo após start().
+     * Necessário quando a porta 0 é usada (porta dinâmica).
+     */
+    public int getPort() {
+        if (server == null) {
+            return requestedPort;
+        }
+        return server.getAddress().getPort();
     }
 
     public void start() throws IOException {
-        server = HttpServer.create(new InetSocketAddress(port), 0);
+        server = HttpServer.create(new InetSocketAddress(requestedPort), 0);
 
         server.createContext("/health", exchange -> {
             try {
@@ -132,19 +163,24 @@ public class AssinadorHttpServer {
                 sendResponse(exchange, 200,
                         new ResponseOutput(true, "Servidor encerrado com sucesso.", null));
 
-                Thread shutdownThread = new Thread(() -> {
-                    try {
-                        Thread.sleep(500);
-                        server.stop(0);
-                        System.exit(0);
-                    } catch (Exception e) {
-                        System.err.println("Erro ao encerrar servidor: " + e.getMessage());
-                        System.exit(1);
-                    }
-                });
-
-                shutdownThread.setDaemon(false);
-                shutdownThread.start();
+                if (testMode) {
+                    // Em modo teste apenas para o HttpServer; não chama System.exit()
+                    // para não matar a JVM forkeada do Surefire.
+                    server.stop(0);
+                } else {
+                    Thread shutdownThread = new Thread(() -> {
+                        try {
+                            Thread.sleep(500);
+                            server.stop(0);
+                            System.exit(0);
+                        } catch (Exception e) {
+                            System.err.println("Erro ao encerrar servidor: " + e.getMessage());
+                            System.exit(1);
+                        }
+                    });
+                    shutdownThread.setDaemon(false);
+                    shutdownThread.start();
+                }
 
             } catch (Exception e) {
                 sendResponse(exchange, 500,
