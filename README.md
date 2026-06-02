@@ -1,154 +1,546 @@
-# RUNNER
+# Sistema Runner — CLI de Assinatura Digital Simulada
 
-Repositório destinado ao desenvolvimento do trabalho prático da disciplina de **Implementação e Integração de Software**.
-
-> Os requisitos gerais, especificações da disciplina e artefatos oficiais do projeto estão disponíveis no repositório do professor:
-> [Runner — Repositório Oficial](https://github.com/kyriosdata/runner)
+> Implementação do trabalho prático baseada na especificação disponível em
+> [`kyriosdata/runner @ ab4d353`](https://github.com/kyriosdata/runner/tree/ab4d353)
 
 ---
 
-## Visão Geral
+## O que é este projeto
 
-O **Runner** é uma solução responsável por simplificar a execução de aplicações Java utilizadas no ecossistema HubSaúde, abstraindo detalhes de configuração, execução e gerenciamento do ambiente.
+O **Sistema Runner** é uma ferramenta de linha de comando (CLI) que permite criar e validar
+assinaturas digitais simuladas por meio do `assinador.jar`, um componente Java que encapsula
+toda a lógica de assinatura e validação.
 
-A aplicação foi projetada para operar tanto via **linha de comando** quanto via **HTTP**, permitindo integração simples com diferentes fluxos de uso.
+O projeto é composto principalmente por dois módulos:
 
-### Principais responsabilidades
+* **Assinador Java (`simulador/assinador`)**: gera o `assinador.jar`, executa comandos de assinatura/validação e disponibiliza endpoints HTTP.
+* **CLI Go (`simulador/cli`)**: fornece comandos de linha de comando para interagir com o assinador, iniciar/parar o servidor HTTP e executar operações de assinatura.
 
-* execução do `assinador.jar`;
-* disponibilização de modo HTTP persistente;
-* gerenciamento do Simulador HubSaúde;
-* provisionamento automático do JDK;
-* distribuição multiplataforma.
+O CLI (`assinatura`) se comunica com o `assinador.jar` de dois modos:
+
+- **Modo servidor (padrão):** o CLI inicia o `assinador.jar` como servidor HTTP e envia as
+  requisições via HTTP. Oferece menor latência por eliminar o cold start do processo Java.
+- **Modo local (`--local`):** o CLI invoca o `assinador.jar` diretamente via `java -jar` a
+  cada comando. Útil quando não há um servidor em execução.
+
+---
+
+## Pré-requisitos
+
+| Ferramenta |       Versão mínima recomendada | Verificação     |
+| ---------- | ------------------------------: | --------------- |
+| Go         | 1.26.2 | `go version`    |
+| JDK        |                              21 | `java -version` |
+| Maven      |                             3.9 | `mvn -version`  |
+| Git        |            versão atual estável | `git --version` |
+
+> O JDK deve estar disponível no `PATH`. O CLI já realiza uma detecção inicial do Java antes de iniciar o `assinador.jar` e exibe mensagem orientativa caso o Java não seja encontrado.
+
+---
+
+## Como obter o projeto
+
+Clone o repositório e acesse a raiz do projeto:
+
+```bash
+git clone https://github.com/isadora-yasmim/runner.git
+cd runner
+```
+
+Todos os comandos abaixo assumem que você está na raiz do repositório.
+
+---
+
+## Como compilar
+
+### 1. Compilar o `assinador.jar` Java
+
+A partir da raiz do repositório:
+
+```bash
+cd simulador/assinador
+mvn clean package
+```
+
+O artefato será gerado em `simulador/assinador/target/assinador-1.0-SNAPSHOT.jar`.
+
+Depois, retorne para a raiz do projeto:
+
+```bash
+cd ../..
+```
+
+---
+
+### 2. Compilar o CLI Go
+
+A partir da raiz do repositório:
+
+```bash
+cd simulador/cli
+go build
+```
+
+No Windows, esse comando gera um executável como `simulador.exe`
+
+Também é possível gerar um binário com nome explícito:
+
+```bash
+go build -o assinatura
+```
+
+No Windows, o executável gerado será: `assinatura.exe`
+
+Depois, retorne para a raiz:
+
+```bash
+cd ../..
+```
+
+---
+
+### 3. Compilar com versão e SHA do commit (opcional)
+
+O workflow de release utiliza `ldflags` para injetar informações de versão e rastreabilidade nos binários gerados.
+
+Esse processo é realizado automaticamente pelo pipeline de release e não é necessário para uso ou desenvolvimento local.
+
+---
+
+### 4. Build único
+
+O uso de um `Makefile` para executar o build completo do projeto ainda está previsto como melhoria de reprodutibilidade.
+
+Enquanto o `Makefile` não estiver disponível, use os comandos manuais que foram descritos acima.
+
+---
+
+## Como executar
+
+### Usando `go run` durante o desenvolvimento
+
+A forma mais simples para desenvolvimento é executar o CLI diretamente com `go run`.
+
+Primeiro, gere o `assinador.jar`:
+
+```bash
+cd simulador/assinador
+mvn clean package
+```
+
+Depois, acesse o CLI:
+
+```bash
+cd ../cli
+```
+
+Agora execute os comandos:
+
+```bash
+go run . version
+```
+
+Exemplo de saída: `assinatura version 0.1.0`
+
+---
+
+```bash
+go run . status
+```
+
+Exemplo de saída quando o servidor não está em execução: `❌ Nenhum assinador HTTP ativo na porta 8080. → Os comandos sign e verify tentarão iniciar o assinador automaticamente.`
+
+Exemplo de saída quando o servidor já está ativo: `✅ Assinador HTTP ativo na porta 8080. → O CLI reutilizará esta instância nas próximas operações.`
+
+---
+
+```bash
+go run . start
+```
+
+Exemplo de saída: `✅ Assinador iniciado na porta 8080. PID: 1252`
+
+> O valor do PID varia a cada execução.
+
+---
+
+```bash
+go run . sign -d documento.txt -t 1234
+```
+
+Exemplo de saída: `✔ Assinatura criada com sucesso → Hash: mock_hash_abc123_base64_encoded_signature_simulated → Algoritmo: SHA256withRSA `
+
+---
+
+```bash
+go run . verify -d documento.txt -s mock_hash_abc123_base64_encoded_signature_simulated
+```
+
+Exemplo de saída para uma assinatura válida: `✔ Assinatura válida`
+
+Exemplo de saída para uma assinatura inválida: `❌ Assinatura inválida → Assinatura invalida ou corrompida.`
+
+---
+
+```bash
+go run . stop
+```
+
+Exemplo de saída: `✅ Assinador encerrado na porta 8080.`
+
+---
+
+### Usando o binário compilado
+
+Dentro de `simulador/cli`, compile o binário.
+
+#### Linux/macOS
+
+```bash
+go build -o assinatura
+```
+
+Executando:
+
+```bash
+./assinatura version
+./assinatura status
+./assinatura start
+./assinatura sign -d documento.txt -t 1234
+./assinatura verify -d documento.txt -s mock_hash_abc123_base64_encoded_signature_simulated
+./assinatura stop
+```
+
+---
+
+#### Windows (PowerShell)
+
+Compile o executável:
+
+`go build -o assinatura.exe`
+
+Executando:
+
+```powershell
+.\assinatura.exe version
+.\assinatura.exe status
+.\assinatura.exe start
+.\assinatura.exe sign -d documento.txt -t 1234
+.\assinatura.exe verify -d documento.txt -s mock_hash_abc123_base64_encoded_signature_simulated
+.\assinatura.exe stop
+```
+
+Exemplo de saída: `assinatura version 0.1.0`
+
+---
+
+## Endpoints HTTP do assinador
+
+O CLI se comunica com o `assinador.jar` por HTTP.
+
+Endpoints atualmente utilizados:
+
+```text
+GET  /health
+POST /sign
+POST /validate
+POST /stop
+```
+
+O comando `verify` do CLI utiliza internamente o endpoint:
+
+```text
+POST /validate
+```
+
+---
+
+## Como executar os testes
+
+### Testes do módulo Java
+
+Todos os comandos desta seção assumem que você está na raiz do repositório (assinador/).
+
+A partir da raiz:
+
+```bash
+cd simulador/assinador
+mvn test
+```
+
+Para executar o ciclo completo de verificação Maven, incluindo relatório JaCoCo:
+
+```bash
+mvn verify
+```
+
+O relatório de cobertura Java é gerado em:
+
+```text
+simulador/assinador/target/site/jacoco/index.html
+```
+
+Depois, retorne para a raiz:
+
+```bash
+cd ../..
+```
+
+---
+
+### Testes do módulo Go
+
+A partir da pasta `simulador/assinador`, acesse o módulo CLI:
+
+```bash
+cd ../cli
+```
+
+Execute os testes Go:
+
+```bash
+go test ./... -v
+```
+
+Atualmente, o módulo Go ainda pode exibir:
+
+```text
+[no test files]
+```
+
+em alguns pacotes, indicando que os testes do CLI ainda estão em evolução.
+
+A geração de relatório de cobertura Go será usada quando houver testes implementados no módulo CLI. Nesse caso, o comando esperado será:
+
+```bash
+go test ./... -coverprofile=coverage.out
+```
+
+E, quando o arquivo `coverage.out` for gerado, será possível visualizar a cobertura com:
+
+```bash
+go tool cover -html=coverage.out
+```
+
+
+---
+
+## Integração contínua e release
+
+O projeto possui workflows em:
+
+```text
+.github/workflows/
+├── ci.yml
+└── release.yml
+```
+
+### CI
+
+O workflow de CI executa build e testes em Ubuntu e Windows para os módulos Java e Go.
+
+Também valida mensagens de commit seguindo o padrão Conventional Commits em Pull Requests.
+
+### Release
+
+O workflow de release é acionado por tags no formato:
+
+```text
+vX.Y.Z
+```
+
+Ele está configurado para gerar binários multiplataforma, checksums SHA256 e assinaturas com Cosign.
+
+A infraestrutura de release está implementada, mas a validação completa de uma release real depende da criação e publicação de uma tag.
+
+---
+
+## Estrutura do repositório
+
+```
+runner
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                         # CI: build e testes em Ubuntu e Windows
+│       └── release.yml                    # Release: binários multiplataforma, SHA256 e 
+├── .vscode/                               # Configurações locais/workspace do VS Code
+├── diagramas/
+│   ├── imagens/                           # SVGs gerados a partir dos diagramas
+│   ├── c4.puml
+│   ├── sequencia.puml
+│   └── sequenciahttp.puml
+├── documentacao/
+│   ├── assinador/                         # Documentação do componente Java
+│   ├── cli/                               # Documentação do CLI Go
+│   ├── servidor/                          # Documentação do modo servidor HTTP
+│   ├── servidor http/                     # Pasta legada, em processo de organização
+│   ├── definicoes.md
+│   ├── design.md
+│   ├── especificacao.md
+│   └── pipeline.md                        # Documentação dos workflows de CI/CD e release
+├── gerenciamento/
+│   ├── backlog.md
+│   ├── cronograma-execucao.md
+│   ├── matriz-rastreabilidade.md
+│   └── plano-revisitado-v2.md
+├── simulador/
+│   ├── assinador/                         # Módulo Java responsável pelo assinador.jar
+│   │   ├── src/
+│   │   │   ├── main/java/br/go/ses/assinador/
+│   │   │   │   ├── Main.java
+│   │   │   │   ├── commands/
+│   │   │   │   │   ├── ServerCommand.java
+│   │   │   │   │   ├── SignCommand.java
+│   │   │   │   │   └── VerifyCommand.java
+│   │   │   │   ├── http/
+│   │   │   │   │   └── AssinadorHttpServer.java
+│   │   │   │   ├── model/
+│   │   │   │   │   ├── ResponseOutput.java
+│   │   │   │   │   └── SignatureData.java
+│   │   │   │   └── util/
+│   │   │   │       ├── JsonUtil.java
+│   │   │   │       └── ParameterValidator.java
+│   │   │   └── test/java/br/go/ses/assinador/
+│   │   │       ├── commands/
+│   │   │       ├── http/
+│   │   │       ├── model/
+│   │   │       └── util/
+│   │   ├── pom.xml
+│   │   └── target/                        # Gerado localmente pelo Maven e ignorado pelo Git
+│   └── cli/                               # Módulo Go responsável pelo CLI assinatura
+│       ├── cmd/
+│       │   ├── root.go                    # Comando raiz e flags globais
+│       │   ├── server_manager.go          # Gerenciamento do ciclo de vida do servidor
+│       │   ├── sign.go                    # Subcomando sign
+│       │   ├── start.go                   # Subcomando start
+│       │   ├── status.go                  # Subcomando status
+│       │   ├── stop.go                    # Subcomando stop
+│       │   ├── verify.go                  # Subcomando verify
+│       │   └── version.go                 # Subcomando version
+│       ├── internal/
+│       │   └── executor/
+│       │       └── java_executor.go       # Execução auxiliar de processos Java
+│       ├── go.mod
+│       ├── go.sum
+│       ├── golangci.yml
+│       ├── LICENSE                        # Licença atual do módulo CLI
+│       └── main.go
+├── .gitattributes
+├── .gitignore
+├── README.md
+├── geraimagens.bat                        # Script auxiliar para geração de imagens dos diagramas
+└── geraimagens.sh                         # Script auxiliar para geração de imagens dos diagramas
+
+```
+
+
+`target/` pode aparecer localmente porque o Maven gerou, mas é ignorado pelo Git. Já `assinatura.exe` e `simulador.exe` são binários locais gerados nos seus testes, então eu **não colocaria na estrutura oficial do README**, porque eles não fazem parte do repositório versionado.
+
+
+
+## Variáveis de ambiente
+
+| Variável         | Descrição                      | Status                  |
+| ---------------- | ------------------------------ | ----------------------- |
+| `ASSINADOR_JAR`  | Caminho para o `assinador.jar` | Planejada / em evolução |
+| `ASSINADOR_PORT` | Porta padrão do servidor HTTP  | Planejada / em evolução |
+
+Atualmente, a porta é configurada principalmente pela flag global:
+
+```bash
+--port
+```
+
+Exemplo:
+
+```bash
+go run . --port 8081 start
+```
 
 ---
 
 ## Arquitetura
 
-A solução utiliza uma arquitetura em camadas com características do padrão **Microkernel**, priorizando:
+O projeto segue um modelo com dois componentes principais:
 
-* modularidade;
-* baixo acoplamento;
-* extensibilidade;
-* portabilidade;
-* facilidade de manutenção.
-
-Os componentes foram organizados seguindo princípios **SOLID**, permitindo evolução incremental e separação clara de responsabilidades.
-
----
-
-### Visão arquitetural
-
-![](./diagramas/imagens/C4_Container.svg)
-
----
-
-### Fluxos de execução
-
-#### Execução local via CLI
-
-O CLI invoca diretamente o `assinador.jar` utilizando `java -jar`, realizando o fluxo completo de inicialização da JVM.
-
-![](./diagramas/imagens/sequencia.svg)
-
----
-
-#### Execução via HTTP
-
-O assinador permanece em execução como servidor HTTP, reduzindo overhead de inicialização e melhorando desempenho em múltiplas requisições.
-
-![](./diagramas/imagens/sequenciahttp.svg)
-
----
-
-## Tecnologias Utilizadas
-
-| Camada / Módulo     | Linguagem | Tecnologias                            |
-| ------------------- | --------- | -------------------------------------- |
-| Assinador           | Java      | JDK 21, Maven, Picocli, Jackson, JUnit |
-| Servidor HTTP       | Java      | HTTP Server nativo                     |
-| CLI                 | Go        | Cobra, net/http                        |
-| Provisionamento JDK | Go        | archive/zip, os, net/http              |
-| Qualidade e CI/CD   | Multi     | GitHub Actions, Cosign, Go Test, JUnit |
-
----
-
-## Estrutura do Projeto
-
-```bash
-.
-├── diagramas/
-├── documentacao/
-├── gerenciamento/
-├── simulador/
-└── README.md
+```text
+Usuário
+   │
+   ▼
+CLI (Go)
+   ├── HTTP ─────────────▶ assinador.jar (modo servidor HTTP)
+   │
+   └── subprocess/java ─▶ assinador.jar (modo local)
 ```
 
----
+No modo atual, o CLI gerencia o ciclo de vida do `assinador.jar` em modo servidor HTTP:
 
-## Organização do Repositório
+1. verifica se há um servidor ativo via `/health`;
+2. inicia o `assinador.jar` automaticamente se necessário;
+3. envia requisições para `/sign` ou `/validate`;
+4. reutiliza a instância ativa nas próximas operações;
+5. encerra o servidor via `/stop` quando solicitado.
 
-### `diagramas/`
-
-Diagramas arquiteturais e fluxos de execução do sistema.
-
-* Modelo C4
-* Diagramas de sequência
-* Fluxos CLI e HTTP
+O modo local com `--local` está previsto, mas ainda está em desenvolvimento.
 
 ---
 
-### `documentacao/`
+## Como contribuir
 
-Documentação técnica relacionada exclusivamente à implementação dos módulos deste repositório.
+1. Abra uma issue descrevendo o problema, melhoria ou requisito.
+2. Relacione a issue à história de usuário ou critério correspondente.
+3. Crie uma branch com nome claro, por exemplo:
 
-* [assinador](./documentacao/assinador) 
-* [servidor](./documentacao/servidor) 
-* [CLI](./documentacao/cli)
+   ```text
+   feat/modo-local
+   fix/jar-path
+   docs/atualiza-readme
+   ```
+4. Faça commits atômicos seguindo Conventional Commits:
 
-> Demais documentações encontram-se no repositório oficial da disciplina.
-
----
-
-### `gerenciamento/`
-
-Artefatos de acompanhamento e planejamento do projeto.
-
-* [Backlog](./gerenciamento/backlog.md)
-* [Cronograma](./gerenciamento/cronograma-execucao.md)
-* [Matriz de Rastreabilidade](./gerenciamento/matriz-rastreabilidade.md)
-
----
-
-## Épicos do Projeto
-
-| Épico                       | Descrição                                    |[x]|
-| --------------------------- | -------------------------------------------- |---|
-| Assinador (`assinador.jar`) | Simulação de assinatura e validação digital  |[x]|
-| Servidor HTTP do Assinador  | Execução persistente via HTTP                |[x]|
-| CLI Assinatura              | Interface multiplataforma em Go              |[x]|
-| Simulador HubSaúde          | Gerenciamento do simulador externo           |[ ]|
-| Provisionamento do JDK      | Download e configuração automática do Java   |[ ]|
-| Qualidade e Entrega         | Testes, CI/CD e distribuição multiplataforma |[ ]|
+   ```text
+   feat:
+   fix:
+   test:
+   docs:
+   refactor:
+   chore:
+   ci:
+   ```
+5. Abra um Pull Request ligado à issue.
+6. Aguarde o CI ficar verde.
+7. Solicite revisão de pelo menos um membro do time antes do merge.
 
 ---
 
-## Qualidade e Entrega
+## Status atual
 
-O projeto adota práticas voltadas à confiabilidade e padronização da entrega:
-
-* testes automatizados;
-* integração contínua;
-* versionamento semântico;
-* geração automatizada de releases;
-* distribuição multiplataforma;
-* assinatura de artefatos com Cosign.
+| Componente                                         | Situação                                       |
+| -------------------------------------------------- | ---------------------------------------------- |
+| `assinador.jar` — comandos sign/verify             | ✅ Implementado                                 |
+| `assinador.jar` — servidor HTTP                    | ✅ Implementado                                 |
+| Endpoints `/health`, `/sign`, `/validate`, `/stop` | ✅ Implementado                                 |
+| CLI Go — `sign` e `verify` via HTTP                | ✅ Implementado                                 |
+| CLI Go — `start`, `stop` e `status`                | ✅ Implementado                                 |
+| Detecção inicial do Java via PATH                  | ✅ Implementado                                 |
+| Validação da existência do `assinador.jar`         | ✅ Implementado                                 |
+| CI — GitHub Actions multiplataforma                | ✅ Implementado                                 |
+| Release workflow com SHA256 e Cosign               | 🔧 Implementado, aguardando validação completa |
+| CLI Go — modo local `--local`                      | 🔧 Em andamento                                |
+| Provisionamento automático do JDK                  | 🔧 Em andamento                                |
+| Simulador HubSaúde                                 | 📋 Planejado                                   |
+| Testes Go de contrato CLI ↔ JAR                    | 📋 Planejado                                   |
+| Makefile / build único                             | 📋 Planejado                                   |
 
 ---
 
-## Referências
 
-* [Runner — Repositório Oficial](https://github.com/kyriosdata/runner)
-* [Cobra CLI](https://cobra.dev)
-* [Picocli](https://picocli.info)
-* [Cosign](https://docs.sigstore.dev)
+## Licença
+
+O módulo CLI possui licença Apache License 2.0, disponível em:
+
+```text
+simulador/cli/LICENSE
+```
+
+A licença é compatível com as dependências utilizadas pelo projeto, incluindo Cobra, Picocli e Jackson.
