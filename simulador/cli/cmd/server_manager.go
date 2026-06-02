@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -50,22 +49,47 @@ func ensureServerRunning() error {
 	return waitForServer()
 }
 
+// runLocalJar invoca o assinador.jar diretamente via subprocess (modo --local).
+// stdout do JAR é capturado e retornado; stderr é propagado para os.Stderr.
+// O exit code do JAR é propagado via error retornado.
+func runLocalJar(args ...string) (string, int, error) {
+	jarPath, err := getAssinadorJarPath()
+	if err != nil {
+		return "", 2, err
+	}
+
+	if err := checkJavaInstalled(); err != nil {
+		return "", 2, err
+	}
+
+	cmdArgs := append([]string{"-jar", jarPath}, args...)
+	cmd := exec.Command("java", cmdArgs...)
+	cmd.Stderr = os.Stderr
+
+	out, err := cmd.Output()
+	stdout := string(out)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return stdout, exitErr.ExitCode(), nil
+		}
+		return stdout, 2, fmt.Errorf("erro ao executar assinador: %w", err)
+	}
+
+	return stdout, 0, nil
+}
+
 func waitForServer() error {
 
 	timeout := time.After(10 * time.Second)
-
-	// time.NewTicker + defer Stop() evita vazamento de goroutine (SA1015).
-	// time.Tick() nunca libera o ticker quando a função retorna antes do tick.
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
+	tick := time.NewTicker(500 * time.Millisecond)
+	defer tick.Stop()
 
 	for {
 		select {
-
 		case <-timeout:
-			return errors.New("timeout aguardando inicialização do servidor")
-
-		case <-ticker.C:
+			return fmt.Errorf("timeout aguardando inicialização do servidor")
+		case <-tick.C:
 			if isServerRunning(serverPort) {
 				return nil
 			}
@@ -79,10 +103,7 @@ func isServerRunning(port int) bool {
 		Timeout: 2 * time.Second,
 	}
 
-	url := fmt.Sprintf(
-		"http://localhost:%d/health",
-		port,
-	)
+	url := fmt.Sprintf("http://localhost:%d/health", port)
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -95,37 +116,45 @@ func isServerRunning(port int) bool {
 
 func checkJavaInstalled() error {
 
-	command := exec.Command("java", "-version")
-
-	err := command.Run()
-	if err != nil {
-
-		// ST1005: strings de erro não devem começar com letra maiúscula.
+	if err := exec.Command("java", "-version").Run(); err != nil {
 		if runtime.GOOS == "windows" {
-			return errors.New(
-				"java não encontrado no PATH.\n→ instale o JDK 21+ e adicione 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
+			return fmt.Errorf(
+				"Java não encontrado no PATH.\n→ Instale o JDK 21+ e adicione o caminho 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
 			)
 		}
-
-		return errors.New(
-			"java não encontrado no PATH.\n→ instale o JDK 21+ e configure o PATH corretamente",
+		return fmt.Errorf(
+			"Java não encontrado no PATH.\n→ Instale o JDK 21+ e configure o PATH corretamente",
 		)
 	}
 
 	return nil
 }
 
+// getAssinadorJarPath resolve o caminho do JAR na seguinte ordem de prioridade:
+//  1. Variável de ambiente ASSINADOR_JAR (usada em CI e em testes de contrato)
+//  2. Caminho relativo convencional do projeto
 func getAssinadorJarPath() (string, error) {
+	// 1. Variável de ambiente — tem precedência absoluta
+	if env := os.Getenv("ASSINADOR_JAR"); env != "" {
+		if _, err := os.Stat(env); err != nil {
+			return "", fmt.Errorf(
+				"ASSINADOR_JAR definido como %q mas arquivo não encontrado: %w",
+				env, err,
+			)
+		}
+		return env, nil
+	}
 
-	jarPath := filepath.Join("..", "assinador", "target", "assinador-1.0-SNAPSHOT.jar")
+	// 2. Caminho relativo convencional
+	jarPath := filepath.Join("..", "assinador", "target", "assinador.jar")
 
 	if _, err := os.Stat(jarPath); err != nil {
 		if os.IsNotExist(err) {
-			return "", errors.New(
-				"assinador.jar não encontrado.\n→ execute: cd ..\\assinador && mvn clean package",
+			return "", fmt.Errorf(
+				"assinador.jar não encontrado em %q.\n→ Execute: cd ../assinador && mvn package",
+				jarPath,
 			)
 		}
-
 		return "", fmt.Errorf("erro ao verificar assinador.jar: %w", err)
 	}
 
