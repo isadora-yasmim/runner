@@ -110,7 +110,7 @@ func runSignHTTP() {
 	}
 
 	if response.Success {
-		fmt.Println("✔ Assinatura criada com sucesso\n")
+		fmt.Println("✔ Assinatura criada com sucesso")
 
 		dataBytes, _ := json.Marshal(response.Data)
 		var data SignData
