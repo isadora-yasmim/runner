@@ -16,8 +16,7 @@ func ensureServerRunning() error {
 		return nil
 	}
 
-	err := checkJavaInstalled()
-	if err != nil {
+	if err := checkJavaInstalled(); err != nil {
 		return err
 	}
 
@@ -38,8 +37,7 @@ func ensureServerRunning() error {
 		fmt.Sprintf("%d", serverPort),
 	)
 
-	err = command.Start()
-	if err != nil {
+	if err := command.Start(); err != nil {
 		return fmt.Errorf("erro ao iniciar assinador automaticamente: %w", err)
 	}
 
@@ -51,7 +49,7 @@ func ensureServerRunning() error {
 
 // runLocalJar invoca o assinador.jar diretamente via subprocess (modo --local).
 // stdout do JAR é capturado e retornado; stderr é propagado para os.Stderr.
-// O exit code do JAR é propagado via error retornado.
+// O exit code do JAR é propagado via segundo valor de retorno.
 func runLocalJar(args ...string) (string, int, error) {
 	jarPath, err := getAssinadorJarPath()
 	if err != nil {
@@ -80,7 +78,6 @@ func runLocalJar(args ...string) (string, int, error) {
 }
 
 func waitForServer() error {
-
 	timeout := time.After(10 * time.Second)
 	tick := time.NewTicker(500 * time.Millisecond)
 	defer tick.Stop()
@@ -98,35 +95,26 @@ func waitForServer() error {
 }
 
 func isServerRunning(port int) bool {
-
-	client := http.Client{
-		Timeout: 2 * time.Second,
-	}
-
-	url := fmt.Sprintf("http://localhost:%d/health", port)
-
-	resp, err := client.Get(url)
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://localhost:%d/health", port))
 	if err != nil {
 		return false
 	}
 	defer resp.Body.Close()
-
 	return resp.StatusCode == http.StatusOK
 }
 
 func checkJavaInstalled() error {
-
 	if err := exec.Command("java", "-version").Run(); err != nil {
 		if runtime.GOOS == "windows" {
 			return fmt.Errorf(
-				"Java não encontrado no PATH.\n→ Instale o JDK 21+ e adicione o caminho 'C:\\Program Files\\Java\\jdk-XX\\bin' nas variáveis de ambiente",
+				"java não encontrado no PATH.\n→ instale o JDK 21+ e adicione ao PATH: C:\\Program Files\\Java\\jdk-XX\\bin",
 			)
 		}
 		return fmt.Errorf(
-			"Java não encontrado no PATH.\n→ Instale o JDK 21+ e configure o PATH corretamente",
+			"java não encontrado no PATH.\n→ instale o JDK 21+ e configure o PATH corretamente",
 		)
 	}
-
 	return nil
 }
 
@@ -138,7 +126,7 @@ func getAssinadorJarPath() (string, error) {
 	if env := os.Getenv("ASSINADOR_JAR"); env != "" {
 		if _, err := os.Stat(env); err != nil {
 			return "", fmt.Errorf(
-				"ASSINADOR_JAR definido como %q mas arquivo não encontrado: %w",
+				"ASSINADOR_JAR aponta para %q, mas o arquivo não foi encontrado: %w",
 				env, err,
 			)
 		}
@@ -151,7 +139,7 @@ func getAssinadorJarPath() (string, error) {
 	if _, err := os.Stat(jarPath); err != nil {
 		if os.IsNotExist(err) {
 			return "", fmt.Errorf(
-				"assinador.jar não encontrado em %q.\n→ Execute: cd ../assinador && mvn package",
+				"assinador.jar não encontrado em %q.\n→ execute: cd ../assinador && mvn package",
 				jarPath,
 			)
 		}
