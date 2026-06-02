@@ -105,6 +105,30 @@ func runCLI(args ...string) (stdout, stderr string, exitCode int) {
 	return
 }
 
+// extractJSON localiza e retorna o primeiro bloco JSON completo no stdout.
+// Necessário porque o JAR usa pretty-print (Jackson writerWithDefaultPrettyPrinter),
+// então o JSON ocupa múltiplas linhas e não pode ser parseado linha a linha.
+func extractJSON(stdout string) (string, bool) {
+	start := strings.Index(stdout, "{")
+	if start == -1 {
+		return "", false
+	}
+	// Encontra o fechamento correspondente contando profundidade
+	depth := 0
+	for i := start; i < len(stdout); i++ {
+		switch stdout[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return stdout[start : i+1], true
+			}
+		}
+	}
+	return "", false
+}
+
 // ------------------------------------------------------------------ version
 
 func TestCLI_Version_DeveExibirVersao(t *testing.T) {
@@ -250,15 +274,16 @@ func TestCLI_SignLocal_SaidaEhJSONValido(t *testing.T) {
 		t.Skipf("sign --local retornou exit code %d; pulando validação de JSON", code)
 	}
 
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "{") {
-			var obj map[string]interface{}
-			if err := json.Unmarshal([]byte(line), &obj); err != nil {
-				t.Errorf("linha JSON inválida: %q — erro: %v", line, err)
-			}
-			return
-		}
+	// O JAR usa pretty-print (múltiplas linhas): extrai o bloco JSON completo
+	// em vez de tentar parsear linha por linha.
+	jsonBlock, found := extractJSON(stdout)
+	if !found {
+		t.Fatalf("nenhum bloco JSON encontrado no stdout:\n%s", stdout)
+	}
+
+	var obj map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonBlock), &obj); err != nil {
+		t.Errorf("JSON inválido: %v\nbloco extraído: %s", err, jsonBlock)
 	}
 }
 
