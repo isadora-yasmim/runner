@@ -22,6 +22,12 @@ on:
   pull_request:
     branches: [main]
 
+# Força todas as actions JavaScript a usarem Node.js 24.
+# Remove o warning de depreciação do Node.js 20 em actions/checkout,
+# actions/setup-java, actions/upload-artifact e actions/setup-node.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Cancela execuções anteriores do mesmo PR para economizar minutos de CI.
 concurrency:
   group: ci-${{ github.ref }}
@@ -88,6 +94,10 @@ jobs:
   #
   #    Lint: usa staticcheck instalado via go install com o Go do projeto.
   #    Substituiu golangci-lint-action que não suporta binários Go 1.26+.
+  #
+  #    Os testes de contrato CLI↔JAR (TestCLI*) fazem t.Skip automático
+  #    quando ASSINADOR_JAR não está definido — sem falsos negativos aqui.
+  #    Eles rodam com JAR real no job 'contrato'.
   # ─────────────────────────────────────────────
   go:
     name: Go · ${{ matrix.os }}
@@ -129,7 +139,8 @@ jobs:
       - name: go build
         run: go build -v ./...
 
-      # Linux: testes com race detector e coleta de cobertura
+      # Linux: testes com race detector e coleta de cobertura.
+      # TestCLI* fazem t.Skip quando ASSINADOR_JAR não está definido.
       - name: go test (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
@@ -153,7 +164,52 @@ jobs:
           retention-days: 14
 
   # ─────────────────────────────────────────────
-  # 3. Validação de mensagens de commit (Conventional Commits)
+  # 3. Testes de contrato CLI ↔ JAR
+  #    Executa após java e go para garantir que ambos compilaram.
+  #    Roda apenas em ubuntu (portabilidade já validada nos jobs acima).
+  #
+  #    Compila o fat JAR, aponta ASSINADOR_JAR para ele e executa
+  #    os testes de contrato (TestCLI*) via subprocess real do binário Go.
+  # ─────────────────────────────────────────────
+  contrato:
+    name: Contrato CLI↔JAR
+    runs-on: ubuntu-latest
+    needs: [java, go]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: simulador/cli/go.mod
+          cache: true
+          cache-dependency-path: simulador/cli/go.sum
+
+      # Compila o fat JAR sem rodar os testes (já rodaram no job java)
+      - name: Compilar assinador.jar
+        working-directory: simulador/assinador
+        run: mvn --batch-mode -e package -DskipTests
+
+      # Executa apenas os testes de contrato apontando para o JAR real.
+      # ASSINADOR_JAR é lido pelo TestMain em contract_test.go.
+      # -count=1 desativa o cache de testes para garantir execução real.
+      - name: Testes de contrato (go test -run TestCLI)
+        working-directory: simulador/cli
+        env:
+          ASSINADOR_JAR: ${{ github.workspace }}/simulador/assinador/target/assinador.jar
+        run: go test -v -count=1 -run "^TestCLI" ./...
+
+  # ─────────────────────────────────────────────
+  # 4. Validação de mensagens de commit (Conventional Commits)
   #    Roda apenas em Pull Requests.
   # ─────────────────────────────────────────────
   commitlint:

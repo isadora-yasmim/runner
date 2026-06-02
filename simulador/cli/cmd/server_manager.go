@@ -39,6 +39,36 @@ func ensureServerRunning() error {
 	return waitForServer()
 }
 
+// runLocalJar invoca o assinador.jar diretamente via subprocess (modo --local).
+// stdout do JAR é capturado e retornado; stderr é propagado para os.Stderr.
+// O exit code do JAR é propagado via segundo valor de retorno.
+func runLocalJar(args ...string) (string, int, error) {
+	jarPath, err := getAssinadorJarPath()
+	if err != nil {
+		return "", 2, err
+	}
+
+	if err := checkJavaInstalled(); err != nil {
+		return "", 2, err
+	}
+
+	cmdArgs := append([]string{"-jar", jarPath}, args...)
+	cmd := exec.Command("java", cmdArgs...)
+	cmd.Stderr = os.Stderr
+
+	out, err := cmd.Output()
+	stdout := string(out)
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return stdout, exitErr.ExitCode(), nil
+		}
+		return stdout, 2, fmt.Errorf("erro ao executar assinador: %w", err)
+	}
+
+	return stdout, 0, nil
+}
+
 func waitForServer() error {
 	timeout := time.After(10 * time.Second)
 
@@ -75,7 +105,6 @@ func isServerRunning(port int) bool {
 
 func checkJavaInstalled() error {
 	if err := exec.Command("java", "-version").Run(); err != nil {
-		// ST1005: strings de erro não devem começar com letra maiúscula.
 		if runtime.GOOS == "windows" {
 			return errors.New(
 				"java não encontrado no PATH\n→ instale o JDK 21+: https://adoptium.net\n→ adicione ao PATH: C:\\Program Files\\Java\\jdk-XX\\bin",
@@ -92,12 +121,10 @@ func checkJavaInstalled() error {
 // pode estar, combinando referências ao executável compilado e ao diretório
 // de trabalho atual (necessário para `go run`).
 func jarCandidates() []string {
-	// Nomes aceitos do JAR (com e sem versão no nome)
 	jarNames := []string{"assinador.jar", "assinador-1.0-SNAPSHOT.jar"}
 
 	var dirs []string
 
-	// 1. Relativo ao binário compilado (produção: `go build`)
 	if execPath, err := os.Executable(); err == nil {
 		execDir := filepath.Dir(execPath)
 		dirs = append(dirs,
@@ -107,7 +134,6 @@ func jarCandidates() []string {
 		)
 	}
 
-	// 2. Relativo ao diretório de trabalho atual (desenvolvimento: `go run`)
 	if cwd, err := os.Getwd(); err == nil {
 		dirs = append(dirs,
 			cwd,
@@ -128,13 +154,11 @@ func jarCandidates() []string {
 }
 
 func getAssinadorJarPath() (string, error) {
-	// Variável de ambiente tem prioridade absoluta
 	if envPath := os.Getenv("ASSINADOR_JAR"); envPath != "" {
 		if _, err := os.Stat(envPath); err == nil {
 			slog.Debug("usando JAR de ASSINADOR_JAR", "caminho", envPath)
 			return envPath, nil
 		}
-		// ST1005: string de erro em minúsculo.
 		return "", fmt.Errorf(
 			"assinador.jar não encontrado em ASSINADOR_JAR=%s\n→ verifique se o arquivo existe",
 			envPath,
@@ -148,7 +172,6 @@ func getAssinadorJarPath() (string, error) {
 		}
 	}
 
-	// ST1005: string de erro em minúsculo.
 	return "", errors.New(
 		"assinador.jar não encontrado\n→ defina: set ASSINADOR_JAR=C:\\caminho\\para\\assinador.jar  (Windows)\n→ ou compile: cd ..\\assinador && mvn clean package -DskipTests",
 	)
