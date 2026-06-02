@@ -22,6 +22,12 @@ on:
   pull_request:
     branches: [main]
 
+# Força todas as actions JavaScript a usarem Node.js 24.
+# Remove o warning de depreciação do Node.js 20 em actions/checkout,
+# actions/setup-java, actions/upload-artifact e actions/setup-node.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Cancela execuções anteriores do mesmo PR para economizar minutos de CI.
 concurrency:
   group: ci-${{ github.ref }}
