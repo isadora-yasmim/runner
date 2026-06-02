@@ -1,7 +1,3 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
@@ -10,26 +6,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// versionCmd represents the version command
+// Version e Commit são injetados via ldflags no build:
+//
+//	go build -ldflags "-X github.com/kyriosdata/assinatura/cmd.Version=v0.1.0 \
+//	                   -X github.com/kyriosdata/assinatura/cmd.Commit=$(git rev-parse --short HEAD)"
+//
+// Em desenvolvimento (go run), exibem os valores padrão abaixo.
+var (
+	Version = "dev"
+	Commit  = "unknown"
+)
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Exibe a versão atual do CLI",
+	Long:  `Exibe a versão semântica e o SHA do commit do build atual.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("assinatura version 0.1.0")
+		fmt.Printf("assinatura %s (%s)\n", Version, Commit)
 	},
 }
 
-
 func init() {
 	rootCmd.AddCommand(versionCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// versionCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// versionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

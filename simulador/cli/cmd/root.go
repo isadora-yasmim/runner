@@ -1,62 +1,77 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-
-
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "simulador",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Use:   "assinatura",
+	Short: "CLI para operações de assinatura digital simulada",
+	Long: `assinatura — CLI do Sistema Runner
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+Gerencia o ciclo de vida do assinador.jar e realiza operações de
+criação e validação de assinaturas digitais simuladas.
+
+Por padrão, as operações são realizadas via HTTP (modo servidor).
+O assinador.jar é iniciado automaticamente quando necessário.
+
+Exemplos:
+  assinatura sign -d contrato.pdf -t 1234
+  assinatura verify -d contrato.pdf -s <hash>
+  assinatura start
+  assinatura start --port 9090
+  assinatura stop
+  assinatura status
+  assinatura version`,
+
+	// PersistentPreRun executa após o parse de flags, antes de qualquer Run.
+	// Garante que o logger esteja configurado com o nível correto.
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		initLogger()
+	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+var (
+	serverPort int
+	verbose    bool
+	quiet      bool
+)
 
-var serverPort int
-
+// Execute é o ponto de entrada do CLI.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.simulador.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 	rootCmd.PersistentFlags().IntVarP(
-	&serverPort,
-	"port",
-	"p",
-	8080,
-	"Porta do servidor HTTP do assinador",
-)
+		&serverPort, "port", "p", 8080,
+		"Porta do servidor HTTP do assinador",
+	)
+	rootCmd.PersistentFlags().BoolVarP(
+		&verbose, "verbose", "v", false,
+		"Habilita saída detalhada (nível DEBUG)",
+	)
+	rootCmd.PersistentFlags().BoolVar(
+		&quiet, "quiet", false,
+		"Suprime saída diagnóstica; exibe apenas erros",
+	)
 }
 
-
+func initLogger() {
+	var level slog.Level
+	switch {
+	case verbose:
+		level = slog.LevelDebug // --verbose prevalece sobre --quiet
+	case quiet:
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})
+	slog.SetDefault(slog.New(handler))
+}
