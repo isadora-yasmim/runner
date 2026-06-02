@@ -357,7 +357,7 @@ A infraestrutura de release está implementada, mas a validação completa de um
 
 ## Estrutura do repositório
 
-```text
+```
 runner
 ├── .github/
 │   └── workflows/
@@ -430,7 +430,8 @@ runner
 ├── README.md
 ├── geraimagens.bat                        # Script auxiliar para geração de imagens dos diagramas
 └── geraimagens.sh                         # Script auxiliar para geração de imagens dos diagramas
-```text
+
+```
 
 
 `target/` pode aparecer localmente porque o Maven gerou, mas é ignorado pelo Git. Já `assinatura.exe` e `simulador.exe` são binários locais gerados nos seus testes, então eu **não colocaria na estrutura oficial do README**, porque eles não fazem parte do repositório versionado.
