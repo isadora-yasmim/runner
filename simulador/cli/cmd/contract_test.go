@@ -136,8 +136,13 @@ func TestCLI_Version_DeveExibirVersao(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code inesperado: %d", code)
 	}
-	if !strings.Contains(stdout, "0.") {
-		t.Errorf("saída não contém versão semântica: %q", stdout)
+
+	if !strings.Contains(stdout, "assinatura") {
+		t.Errorf("saída não contém nome do CLI: %q", stdout)
+	}
+
+	if !strings.Contains(stdout, "(") || !strings.Contains(stdout, ")") {
+		t.Errorf("saída não contém commit entre parênteses: %q", stdout)
 	}
 }
 

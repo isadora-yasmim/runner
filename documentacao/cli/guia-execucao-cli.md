@@ -292,5 +292,6 @@ mvn clean package
 Se a porta padrão estiver ocupada, utilize outra porta:
 
 ```bash
+cd ../cli
 go run . --port 8081 start
 ```

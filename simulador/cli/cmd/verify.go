@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
+// VerifyRequest representa o corpo da requisição POST /validate.
 type VerifyRequest struct {
 	Document  string `json:"document"`
 	Signature string `json:"signature"`
@@ -23,21 +25,30 @@ var verifyLocal bool
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Valida uma assinatura digital",
-	Long: `Valida uma assinatura digital contra o documento informado.
+	Long: `Valida uma assinatura digital via assinador.jar.
 
-Por padrão usa o modo HTTP (requer assinador em execução ou inicia automaticamente).
-Use --local para invocar o assinador.jar diretamente via subprocess, sem servidor HTTP.
+Por padrão, usa o modo HTTP: o assinador.jar é iniciado automaticamente
+se não estiver em execução.
+
+Use --local para invocar o assinador.jar diretamente via subprocess,
+sem iniciar o servidor HTTP.
+
+Exit codes:
+  0  Assinatura válida
+  1  Assinatura inválida ou parâmetros rejeitados pelo assinador
+  2  Erro de sistema (JVM ausente, JAR não encontrado, falha de rede)
 
 Exemplos:
-  simulador verify -d contrato.pdf -s <hash>
-  simulador verify -d contrato.pdf -s <hash> --local
-  simulador verify -d contrato.pdf -s <hash> --port 9090`,
+  assinatura verify -d contrato.pdf -s <hash>
+  assinatura verify -d contrato.pdf -s <hash> --local
+  assinatura verify -d contrato.pdf -s <hash> --port 9090`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if verifyLocal {
 			runVerifyLocal()
-		} else {
-			runVerifyHTTP()
+			return
 		}
+
+		runVerifyHTTP()
 	},
 }
 
@@ -49,7 +60,8 @@ func runVerifyLocal() {
 	)
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "❌ Erro ao executar assinador:", err)
+		slog.Error("falha ao executar assinador em modo local", "erro", err)
+		fmt.Fprintf(os.Stderr, "❌ Erro de sistema: não foi possível executar o assinador em modo local.\n→ %s\n", err)
 		os.Exit(2)
 	}
 
@@ -59,42 +71,45 @@ func runVerifyLocal() {
 
 func runVerifyHTTP() {
 	if err := ensureServerRunning(); err != nil {
-		fmt.Fprintln(os.Stderr, "❌ Não foi possível conectar ao assinador HTTP.")
-		fmt.Fprintln(os.Stderr, "→", err)
+		slog.Error("falha ao iniciar o assinador", "erro", err)
+		fmt.Fprintf(os.Stderr, "❌ Erro de sistema: não foi possível iniciar o assinador.\n→ %s\n", err)
 		os.Exit(2)
 	}
 
-	request := VerifyRequest{
-		Document:  verifyDocument,
-		Signature: verifySignature,
-	}
-
+	request := VerifyRequest{Document: verifyDocument, Signature: verifySignature}
 	body, err := json.Marshal(request)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "❌ Erro ao preparar a requisição de validação.")
+		slog.Error("falha ao serializar requisição de verificação", "erro", err)
+		fmt.Fprintf(os.Stderr, "❌ Erro de sistema: falha interna ao preparar a requisição.\n→ %s\n", err)
 		os.Exit(2)
 	}
 
 	url := fmt.Sprintf("http://localhost:%d/validate", serverPort)
-
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "❌ Erro ao enviar requisição para o assinador HTTP.")
-		fmt.Fprintln(os.Stderr, "→", err)
+		slog.Error("falha ao conectar ao assinador HTTP", "url", url, "erro", err)
+		fmt.Fprintf(os.Stderr,
+			"❌ Erro de sistema: não foi possível conectar ao assinador HTTP.\n→ %s\n→ Verifique com 'assinatura status' e reinicie com 'assinatura start'\n",
+			err,
+		)
 		os.Exit(2)
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "❌ Erro ao ler resposta do servidor.")
+		slog.Error("falha ao ler resposta do assinador", "erro", err)
+		fmt.Fprintf(os.Stderr, "❌ Erro de sistema: falha ao ler resposta do assinador.\n→ %s\n", err)
 		os.Exit(2)
 	}
 
 	var response ResponseOutput
 	if err := json.Unmarshal(responseBody, &response); err != nil {
-		fmt.Fprintln(os.Stderr, "❌ Erro ao interpretar resposta do assinador HTTP.")
-		fmt.Fprintln(os.Stderr, string(responseBody))
+		slog.Error("resposta inesperada do assinador", "corpo", string(responseBody), "erro", err)
+		fmt.Fprintf(os.Stderr,
+			"❌ Erro de sistema: o assinador retornou uma resposta inválida.\n→ Corpo recebido: %s\n",
+			string(responseBody),
+		)
 		os.Exit(2)
 	}
 
@@ -103,8 +118,8 @@ func runVerifyHTTP() {
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, "❌ Assinatura inválida")
-	fmt.Fprintln(os.Stderr, "→", response.Message)
+	slog.Info("assinatura inválida", "mensagem", response.Message)
+	fmt.Fprintf(os.Stderr, "❌ Assinatura inválida: %s\n", response.Message)
 	os.Exit(1)
 }
 
@@ -124,7 +139,7 @@ func init() {
 		"signature",
 		"s",
 		"",
-		"Hash ou conteúdo da assinatura",
+		"Hash ou conteúdo da assinatura a validar",
 	)
 
 	verifyCmd.Flags().BoolVar(
