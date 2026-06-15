@@ -23,6 +23,7 @@ public class AssinadorHttpServer {
     private final int port;
     private final SignatureService signatureService;
     private HttpServer server;
+    private boolean testMode = false;
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -41,6 +42,23 @@ public class AssinadorHttpServer {
     public AssinadorHttpServer(int port, SignatureToken token) {
         this.port = port;
         this.signatureService = new SignatureService(token);
+    }
+
+    /**
+     * Ativa o modo de teste: o endpoint /stop encerra apenas o HttpServer,
+     * sem chamar System.exit(), evitando matar a JVM do Surefire.
+     */
+    public AssinadorHttpServer withTestMode() {
+        this.testMode = true;
+        return this;
+    }
+
+    /** Porta real atribuída pelo SO (útil com porta 0 em testes). */
+    public int getPort() {
+        if (server == null) {
+            throw new IllegalStateException("Servidor nao iniciado.");
+        }
+        return server.getAddress().getPort();
     }
 
     public void start() throws IOException {
@@ -152,11 +170,15 @@ public class AssinadorHttpServer {
                     try {
                         Thread.sleep(500);
                         server.stop(0);
-                        System.exit(0);
+                        if (!testMode) {
+                            System.exit(0);
+                        }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         System.err.println("Encerramento interrompido: " + e.getMessage());
-                        System.exit(1);
+                        if (!testMode) {
+                            System.exit(1);
+                        }
                     }
                 });
 
