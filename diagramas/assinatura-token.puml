@@ -59,6 +59,7 @@ TokenFactory ..> Pkcs11Token : --real
 SignCommand ..> TokenFactory
 VerifyCommand ..> TokenFactory
 ServerCommand ..> TokenFactory
+AssinadorHttpServer ..> TokenFactory
 ServerCommand --> AssinadorHttpServer
 
 ' erro de sistema/dispositivo
