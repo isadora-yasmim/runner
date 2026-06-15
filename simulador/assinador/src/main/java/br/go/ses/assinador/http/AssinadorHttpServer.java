@@ -2,8 +2,8 @@ package br.go.ses.assinador.http;
 
 import br.go.ses.assinador.crypto.SignatureService;
 import br.go.ses.assinador.crypto.SignatureToken;
-import br.go.ses.assinador.crypto.SimulatedToken;
 import br.go.ses.assinador.crypto.TokenException;
+import br.go.ses.assinador.crypto.TokenFactory;
 import br.go.ses.assinador.model.ResponseOutput;
 import br.go.ses.assinador.model.SignatureData;
 
@@ -32,7 +32,7 @@ public class AssinadorHttpServer {
      * existentes, usando o token simulado por padrao.
      */
     public AssinadorHttpServer(int port) {
-        this(port, new SimulatedToken());
+        this(port, TokenFactory.create(false));
     }
 
     /**
