@@ -2,60 +2,76 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
 )
 
+var startTimeout int
+
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Inicia o assinador.jar em modo servidor HTTP",
-	Long: `Inicia o assinador.jar como servidor HTTP em background.
+	Long: `Inicia o assinador.jar em modo servidor HTTP em background.
 
-Realiza um health check real antes de iniciar: se uma instância já
-estiver ativa na porta indicada, o comando encerra sem criar duplicatas.
-
-Exit codes:
-  0  Servidor iniciado com sucesso (ou já estava em execução)
-  2  Erro de sistema (JVM ausente, JAR não encontrado, falha ao iniciar processo)
+O servidor responde nos endpoints /sign, /validate, /health e /stop.
 
 Exemplos:
-  assinatura start
-  assinatura start --port 9090`,
-	Run: func(cmd *cobra.Command, args []string) {
+  assinatura start                 → inicia na porta padrao (8080)
+  assinatura start --port 8081     → inicia na porta 8081
+  assinatura start --timeout 10    → encerra apos 10 min de inatividade`,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if isServerRunning(serverPort) {
-			slog.Info("assinador já em execução", "porta", serverPort)
 			fmt.Printf("✅ Assinador já está em execução na porta %d.\n", serverPort)
-			return
+			return nil
 		}
 
-		if err := checkJavaInstalled(); err != nil {
-			slog.Error("Java não disponível", "erro", err)
-			fmt.Fprintf(os.Stderr, "❌ Erro de sistema: %s\n", err)
-			os.Exit(2)
+		err := checkJavaInstalled()
+		if err != nil {
+			return err
 		}
 
 		jarPath, err := getAssinadorJarPath()
 		if err != nil {
-			slog.Error("JAR não encontrado", "erro", err)
-			fmt.Fprintf(os.Stderr, "❌ Erro de sistema: %s\n", err)
-			os.Exit(2)
+			return err
 		}
 
-		command := exec.Command("java", "-jar", jarPath, "server", "--port", fmt.Sprintf("%d", serverPort))
-		if err := command.Start(); err != nil {
-			slog.Error("falha ao iniciar assinador.jar", "jar", jarPath, "erro", err)
-			fmt.Fprintf(os.Stderr, "❌ Erro de sistema: não foi possível iniciar o processo do assinador.\n→ %s\n", err)
-			os.Exit(2)
+		jarArgs := []string{
+			"-jar",
+			jarPath,
+			"server",
+			"--port",
+			fmt.Sprintf("%d", serverPort),
 		}
 
-		slog.Info("assinador iniciado", "pid", command.Process.Pid, "porta", serverPort)
-		fmt.Printf("✅ Assinador iniciado na porta %d (PID %d).\n", serverPort, command.Process.Pid)
+		if startTimeout > 0 {
+			jarArgs = append(jarArgs, "--timeout", fmt.Sprintf("%d", startTimeout))
+		}
+
+		command := exec.Command("java", jarArgs...)
+
+		err = command.Start()
+		if err != nil {
+			return fmt.Errorf("erro ao iniciar assinador.jar: %w", err)
+		}
+
+		fmt.Printf("✅ Assinador iniciado na porta %d.\n", serverPort)
+		fmt.Printf("PID: %d\n", command.Process.Pid)
+		if startTimeout > 0 {
+			fmt.Printf("⏱️  Auto-shutdown após %d min de inatividade.\n", startTimeout)
+		}
+
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
+
+	startCmd.Flags().IntVar(
+		&startTimeout,
+		"timeout",
+		0,
+		"Minutos de inatividade antes do auto-shutdown (0 = desativado)",
+	)
 }
