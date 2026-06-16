@@ -27,17 +27,26 @@ public class ServerCommand implements Callable<Integer> {
     )
     private boolean real;
 
+    @Option(
+        names = {"-T", "--timeout"},
+        description = "Minutos de inatividade antes do auto-shutdown. 0 = desativado (padrao)."
+    )
+    private long timeout = 0L;
+
     @Override
     public Integer call() {
         try {
             SignatureToken token = TokenFactory.create(real);
-            AssinadorHttpServer server = new AssinadorHttpServer(port, token);
+            AssinadorHttpServer server = new AssinadorHttpServer(port, token, timeout);
             server.start();
 
             System.out.println("Servidor HTTP do assinador iniciado com sucesso.");
             System.out.println("Porta: " + port);
             System.out.println("Token: " + token.describe());
             System.out.println("Health check: http://localhost:" + port + "/health");
+            if (timeout > 0) {
+                System.out.println("Auto-shutdown: " + timeout + " min de inatividade.");
+            }
             System.out.println("Pressione CTRL+C para encerrar o servidor.");
 
             Thread.currentThread().join();
