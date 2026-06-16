@@ -355,6 +355,44 @@ A infraestrutura de release está implementada, mas a validação completa de um
 
 ---
 
+### Verificação de integridade e autenticidade
+
+Cada release publica:
+
+- Binários multiplataforma (`linux`, `windows` e `darwin`)
+- Arquivo de checksums SHA256
+- Assinaturas Cosign (`.sig`)
+- Certificados Cosign (`.pem`)
+
+#### Verificar integridade (SHA256)
+
+Após baixar os arquivos da release:
+
+```bash
+sha256sum --check checksums-vX.Y.Z.txt
+```
+
+O comando deve indicar `OK` para todos os artefatos.
+
+#### Verificar autenticidade (Cosign)
+
+Exemplo para o binário Linux:
+
+```bash
+cosign verify-blob \
+  --certificate assinatura-vX.Y.Z-linux-amd64.pem \
+  --signature assinatura-vX.Y.Z-linux-amd64.sig \
+  --certificate-identity-regexp "https://github.com/isadora-yasmim/runner/.*" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  assinatura-vX.Y.Z-linux-amd64
+```
+
+Para Windows ou macOS, substitua os nomes dos arquivos pelo artefato correspondente da release.
+
+A verificação confirma que o artefato foi gerado pelo workflow oficial do projeto utilizando assinatura keyless via GitHub Actions OIDC e registrado no Transparency Log da Sigstore.
+
+---
+
 ## Estrutura do repositório
 
 ```
