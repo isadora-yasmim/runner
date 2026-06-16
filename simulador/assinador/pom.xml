@@ -9,9 +9,8 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <java.version>17</java.version>
-        <maven.compiler.source>${java.version}</maven.compiler.source>
-        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <java.version>21</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -23,6 +22,11 @@
         <system-lambda.version>1.2.1</system-lambda.version>
         <jacoco.version>0.8.11</jacoco.version>
         <shade.version>3.6.0</shade.version>
+        <enforcer.version>3.5.0</enforcer.version>
+
+        <!-- versões mínimas verificadas em runtime de build (erro amigável) -->
+        <min.maven.version>3.8.0</min.maven.version>
+        <min.jdk.version>21</min.jdk.version>
     </properties>
 
     <dependencies>
@@ -70,14 +74,46 @@
     <build>
         <plugins>
 
+            <!-- Versões mínimas: falha cedo e com mensagem clara se o
+                 ambiente de build não atender (Maven/JDK incompatíveis) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${enforcer.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-versions</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>[${min.maven.version},)</version>
+                                    <message>
+                                        Maven ${min.maven.version}+ e necessario para construir o assinador.jar.
+                                    </message>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>[${min.jdk.version},)</version>
+                                    <message>
+                                        JDK ${min.jdk.version}+ e necessario. Instale o Java 21 (ou superior) e ajuste JAVA_HOME.
+                                    </message>
+                                </requireJavaVersion>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Compilação -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>${java.version}</release>
                     <!-- processamento de anotações do picocli em tempo de compilação -->
                     <annotationProcessorPaths>
                         <path>
