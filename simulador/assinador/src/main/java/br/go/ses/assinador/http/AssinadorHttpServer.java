@@ -1,8 +1,11 @@
 package br.go.ses.assinador.http;
 
+import br.go.ses.assinador.crypto.SignatureService;
+import br.go.ses.assinador.crypto.SignatureToken;
+import br.go.ses.assinador.crypto.TokenException;
+import br.go.ses.assinador.crypto.TokenFactory;
 import br.go.ses.assinador.model.ResponseOutput;
 import br.go.ses.assinador.model.SignatureData;
-import br.go.ses.assinador.util.ParameterValidator;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,50 +20,49 @@ import java.util.Map;
 
 public class AssinadorHttpServer {
 
-    private final int requestedPort;
+    private final int port;
+    private final SignatureService signatureService;
     private HttpServer server;
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    private static final String MOCK_SIGNATURE =
-            "mock_hash_abc123_base64_encoded_signature_simulated";
-
-    /**
-     * Quando true, o endpoint /stop encerra apenas o HttpServer sem chamar
-     * System.exit(). Usado exclusivamente em testes para evitar que a JVM
-     * forkeada do Surefire seja morta prematuramente.
-     */
     private boolean testMode = false;
 
+    private static final ObjectMapper mapper = new ObjectMapper();
+
     /**
-     * Cria o servidor na porta indicada.
-     * Passe 0 para deixar o SO escolher uma porta livre (útil em testes).
+     * Construtor de conveniencia: mantem compatibilidade com chamadas
+     * existentes, usando o token simulado por padrao.
      */
     public AssinadorHttpServer(int port) {
-        this.requestedPort = port;
+        this(port, TokenFactory.create(false));
     }
 
     /**
-     * Ativa o modo teste: /stop encerra o HttpServer mas não chama System.exit().
-     * Deve ser chamado antes de start().
+     * Construtor principal: o transporte (HTTP) recebe o token a ser usado
+     * pelo dominio, sem conhecer sua implementacao concreta.
+     */
+    public AssinadorHttpServer(int port, SignatureToken token) {
+        this.port = port;
+        this.signatureService = new SignatureService(token);
+    }
+
+    /**
+     * Ativa o modo de teste: o endpoint /stop encerra apenas o HttpServer,
+     * sem chamar System.exit(), evitando matar a JVM do Surefire.
      */
     public AssinadorHttpServer withTestMode() {
         this.testMode = true;
         return this;
     }
 
-    /**
-     * Retorna a porta real em que o servidor está ouvindo após start().
-     * Necessário quando a porta 0 é usada (porta dinâmica).
-     */
+    /** Porta real atribuída pelo SO (útil com porta 0 em testes). */
     public int getPort() {
         if (server == null) {
-            return requestedPort;
+            throw new IllegalStateException("Servidor nao iniciado.");
         }
         return server.getAddress().getPort();
     }
 
     public void start() throws IOException {
-        server = HttpServer.create(new InetSocketAddress(requestedPort), 0);
+        server = HttpServer.create(new InetSocketAddress(port), 0);
 
         server.createContext("/health", exchange -> {
             try {
@@ -73,12 +75,12 @@ public class AssinadorHttpServer {
                 ResponseOutput response = new ResponseOutput(
                         true,
                         "Assinador HTTP ativo",
-                        Map.of("status", "UP")
+                        Map.of("status", "UP", "token", signatureService.tokenDescription())
                 );
 
                 sendResponse(exchange, 200, response);
 
-            } catch (Exception e) {
+            } catch (IOException e) {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
@@ -93,25 +95,25 @@ public class AssinadorHttpServer {
                 }
 
                 JsonNode body = readJsonBody(exchange);
-
                 String document = getTextField(body, "document");
                 String tokenPin = getTextField(body, "tokenPin");
 
-                ParameterValidator.validateSign(document, tokenPin);
-
-                SignatureData signatureData = new SignatureData(
-                        MOCK_SIGNATURE,
-                        "SHA256withRSA"
-                );
+                SignatureData signature = signatureService.sign(document, tokenPin);
 
                 sendResponse(exchange, 200,
-                        new ResponseOutput(true, "Assinatura criada com sucesso (Simulacao)", signatureData));
+                        new ResponseOutput(true, "Assinatura criada com sucesso (Simulacao)", signature));
 
             } catch (IllegalArgumentException e) {
+                // Erro do usuario: parametro invalido.
                 sendResponse(exchange, 400,
                         new ResponseOutput(false, e.getMessage(), null));
 
-            } catch (Exception e) {
+            } catch (TokenException e) {
+                // Erro de sistema: dispositivo ausente ou falho.
+                sendResponse(exchange, 503,
+                        new ResponseOutput(false, e.getMessage(), null));
+
+            } catch (IOException e) {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
@@ -126,13 +128,10 @@ public class AssinadorHttpServer {
                 }
 
                 JsonNode body = readJsonBody(exchange);
-
                 String document = getTextField(body, "document");
                 String signature = getTextField(body, "signature");
 
-                ParameterValidator.validateVerify(document, signature);
-
-                boolean isValid = MOCK_SIGNATURE.equals(signature);
+                boolean isValid = signatureService.verify(document, signature);
 
                 if (isValid) {
                     sendResponse(exchange, 200,
@@ -146,7 +145,11 @@ public class AssinadorHttpServer {
                 sendResponse(exchange, 400,
                         new ResponseOutput(false, e.getMessage(), null));
 
-            } catch (Exception e) {
+            } catch (TokenException e) {
+                sendResponse(exchange, 503,
+                        new ResponseOutput(false, e.getMessage(), null));
+
+            } catch (IOException e) {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
@@ -163,26 +166,26 @@ public class AssinadorHttpServer {
                 sendResponse(exchange, 200,
                         new ResponseOutput(true, "Servidor encerrado com sucesso.", null));
 
-                if (testMode) {
-                    // Em modo teste apenas para o HttpServer; não chama System.exit()
-                    // para não matar a JVM forkeada do Surefire.
-                    server.stop(0);
-                } else {
-                    Thread shutdownThread = new Thread(() -> {
-                        try {
-                            Thread.sleep(500);
-                            server.stop(0);
+                Thread shutdownThread = new Thread(() -> {
+                    try {
+                        Thread.sleep(500);
+                        server.stop(0);
+                        if (!testMode) {
                             System.exit(0);
-                        } catch (Exception e) {
-                            System.err.println("Erro ao encerrar servidor: " + e.getMessage());
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        System.err.println("Encerramento interrompido: " + e.getMessage());
+                        if (!testMode) {
                             System.exit(1);
                         }
-                    });
-                    shutdownThread.setDaemon(false);
-                    shutdownThread.start();
-                }
+                    }
+                });
 
-            } catch (Exception e) {
+                shutdownThread.setDaemon(false);
+                shutdownThread.start();
+
+            } catch (IOException e) {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }

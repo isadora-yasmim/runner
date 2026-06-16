@@ -11,7 +11,7 @@ import java.util.concurrent.Callable;
 @Command(
     name = "assinador",
     mixinStandardHelpOptions = true,
-    version = "1.0",
+    version = "1.0.0",
     description = "Assinador Simulado - Sistema Runner",
     subcommands = {
         SignCommand.class,

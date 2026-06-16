@@ -1,0 +1,75 @@
+@startuml assinatura-token
+title Arquitetura do Assinador — porta SignatureToken (Issue #52)
+
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+
+package "interface (CLI / HTTP)" {
+  class SignCommand
+  class VerifyCommand
+  class ServerCommand
+  class AssinadorHttpServer
+}
+
+package "dominio (crypto)" {
+  class SignatureService {
+    -token : SignatureToken
+    +sign(document, pin) : SignatureData
+    +verify(document, signature) : boolean
+    +tokenDescription() : String
+  }
+
+  interface SignatureToken {
+    +sign(content, pin) : SignatureData
+    +verify(content, signature) : boolean
+    +isPresent() : boolean
+    +describe() : String
+  }
+
+  class SimulatedToken {
+    +isPresent() = true
+  }
+
+  class Pkcs11Token {
+    +isPresent() = false (esqueleto; Issue #47)
+  }
+
+  class TokenFactory {
+    +create(real) : SignatureToken
+  }
+
+  class TokenException
+}
+
+' interface depende do recebedor
+SignCommand --> SignatureService
+VerifyCommand --> SignatureService
+AssinadorHttpServer --> SignatureService
+
+' recebedor depende apenas da porta
+SignatureService --> SignatureToken
+
+' implementacoes da porta
+SimulatedToken ..|> SignatureToken
+Pkcs11Token ..|> SignatureToken
+
+' fabrica escolhe a implementacao (simulado por padrao)
+TokenFactory ..> SimulatedToken : padrao
+TokenFactory ..> Pkcs11Token : --real
+SignCommand ..> TokenFactory
+VerifyCommand ..> TokenFactory
+ServerCommand ..> TokenFactory
+AssinadorHttpServer ..> TokenFactory
+ServerCommand --> AssinadorHttpServer
+
+' erro de sistema/dispositivo
+Pkcs11Token ..> TokenException : lanca
+SignatureService ..> TokenException : propaga
+
+note bottom of SimulatedToken
+  Indistinguivel de um token real
+  para o SignatureService: "engana"
+  o recebedor (isPresent = true).
+end note
+
+@enduml
