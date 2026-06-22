@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assinador HTTP API — Documentação</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #171c24;
+      --panel-2: #1f2630;
+      --border: #2a323d;
+      --text: #e6edf3;
+      --muted: #9aa7b4;
+      --accent: #5db0ff;
+      --get: #2f81f7;
+      --post: #2ea043;
+      --code-bg: #0b0f14;
+      --warn: #f0883e;
+      --err: #f85149;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    aside {
+      width: 280px;
+      flex: 0 0 280px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    aside h1 { font-size: 16px; margin: 0 0 4px; }
+    aside .version { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+    .nav-group { margin-bottom: 16px; }
+    .nav-group-title {
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin: 0 0 6px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    .nav-item:hover { background: var(--panel-2); }
+    main { flex: 1; padding: 28px 36px; max-width: 980px; }
+    .verb {
+      font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      color: #fff; text-transform: uppercase; letter-spacing: .03em; min-width: 44px; text-align: center;
+    }
+    .verb.get { background: var(--get); }
+    .verb.post { background: var(--post); }
+    .endpoint {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; scroll-margin-top: 16px;
+    }
+    .endpoint-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .endpoint-head .path { font-size: 15px; font-weight: 600; }
+    .endpoint .summary { color: var(--text); margin: 8px 0 2px; font-weight: 600; }
+    .endpoint .desc { color: var(--muted); margin: 0 0 8px; font-size: 14px; }
+    .section-label {
+      text-transform: uppercase; font-size: 11px; letter-spacing: .06em;
+      color: var(--muted); margin: 16px 0 6px;
+    }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 8px;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 0 0 8px; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    .req-badge { color: var(--warn); font-size: 11px; }
+    .status { font-weight: 700; }
+    .status.s2 { color: var(--post); }
+    .status.s4 { color: var(--warn); }
+    .status.s5 { color: var(--err); }
+    .intro { margin-bottom: 22px; }
+    .intro h2 { margin: 0 0 6px; }
+    .intro p { color: var(--muted); margin: 0; }
+    .intro .hint {
+      margin-top: 10px; font-size: 13px; color: var(--text);
+      background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px;
+    }
+    .error-box {
+      background: var(--panel); border: 1px solid var(--err); border-radius: 10px;
+      padding: 18px 20px; color: var(--err);
+    }
+    .pill {
+      display: inline-block; background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 999px; padding: 1px 9px; font-size: 11px; color: var(--muted);
+    }
+    /* ---- painel interativo (Try it out) ---- */
+    .try-panel {
+      margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border);
+    }
+    textarea.body-input {
+      width: 100%; background: var(--code-bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; resize: vertical; margin-bottom: 8px; line-height: 1.45;
+    }
+    button.exec-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent); color: #04203f; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    button.exec-btn:hover { filter: brightness(1.08); }
+    button.exec-btn:disabled { opacity: .55; cursor: default; }
+    .response-out { margin-top: 14px; }
+    .response-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+    .danger-note { color: var(--warn); font-size: 12px; margin: 0 0 8px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1 id="api-title">API</h1>
+      <div class="version" id="api-version"></div>
+      <nav id="nav"></nav>
+    </aside>
+    <main>
+      <div class="intro">
+        <h2 id="main-title">Documentação da API</h2>
+        <p id="main-desc"></p>
+        <div class="hint">
+          Cada endpoint tem um painel <strong>Executar</strong>: edite o corpo (quando houver)
+          e clique em <strong>Enviar requisição</strong> para chamar a API real e ver a resposta,
+          sem sair desta página.
+        </div>
+      </div>
+      <div id="content"></div>
+    </main>
+  </div>
+
+  <script>
+    "use strict";
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      if (attrs) {
+        Object.keys(attrs).forEach(function (k) {
+          if (k === "class") node.className = attrs[k];
+          else if (k === "text") node.textContent = attrs[k];
+          else node.setAttribute(k, attrs[k]);
+        });
+      }
+      (children || []).forEach(function (c) {
+        node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+      });
+      return node;
+    }
+
+    function slug(method, path) {
+      return (method + "-" + path).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    }
+
+    function statusClass(code) {
+      return "status s" + String(code).charAt(0);
+    }
+
+    function pretty(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    function renderSchemaTable(schema) {
+      if (!schema || !schema.properties) return null;
+      var required = schema.required || [];
+      var table = el("table");
+      var thead = el("thead", null, [
+        el("tr", null, [
+          el("th", { text: "Campo" }),
+          el("th", { text: "Tipo" }),
+          el("th", { text: "Descrição" })
+        ])
+      ]);
+      var tbody = el("tbody");
+      Object.keys(schema.properties).forEach(function (name) {
+        var p = schema.properties[name];
+        var nameCell = el("td", null, [el("code", { text: name })]);
+        if (required.indexOf(name) !== -1) {
+          nameCell.appendChild(document.createTextNode(" "));
+          nameCell.appendChild(el("span", { class: "req-badge", text: "obrigatório" }));
+        }
+        tbody.appendChild(el("tr", null, [
+          nameCell,
+          el("td", null, [el("code", { text: p.type || "any" })]),
+          el("td", { text: p.description || "" })
+        ]));
+      });
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      return table;
+    }
+
+    function resolveRef(spec, ref) {
+      if (!ref || ref.indexOf("#/") !== 0) return null;
+      var parts = ref.slice(2).split("/");
+      var cur = spec;
+      for (var i = 0; i < parts.length; i++) {
+        if (!cur) return null;
+        cur = cur[parts[i]];
+      }
+      return cur;
+    }
+
+    function firstExample(mediaType) {
+      if (!mediaType) return null;
+      if (mediaType.example !== undefined) return mediaType.example;
+      if (mediaType.examples) {
+        var keys = Object.keys(mediaType.examples);
+        if (keys.length) return mediaType.examples[keys[0]].value;
+      }
+      return null;
+    }
+
+    function renderResponse(out, status, contentType, text, ms) {
+      out.innerHTML = "";
+      var isError = status === 0;
+      var label = isError ? "ERRO" : ("HTTP " + status);
+      var cls = isError ? "status s5" : statusClass(status);
+      out.appendChild(el("div", { class: "response-head" }, [
+        el("span", { class: cls, text: label }),
+        el("span", { class: "pill", text: contentType || "—" }),
+        el("span", { class: "pill", text: ms + " ms" })
+      ]));
+      var bodyText = text;
+      if (!isError && contentType.indexOf("application/json") !== -1) {
+        try { bodyText = pretty(JSON.parse(text)); } catch (e) { /* mantém texto cru */ }
+      }
+      out.appendChild(el("pre", { text: bodyText || "(sem corpo)" }));
+    }
+
+    function buildTryPanel(method, path, hasBody, example) {
+      var panel = el("div", { class: "try-panel" });
+      panel.appendChild(el("div", { class: "section-label", text: "Executar" }));
+
+      if (path === "/stop") {
+        panel.appendChild(el("p", {
+          class: "danger-note",
+          text: "Atencao: enviar esta requisicao encerra o servidor do assinador."
+        }));
+      }
+
+      var textarea = null;
+      if (hasBody) {
+        textarea = el("textarea", { class: "body-input", spellcheck: "false", rows: "6" });
+        textarea.value = example !== null ? pretty(example) : "{}";
+        panel.appendChild(textarea);
+      }
+
+      var btn = el("button", { class: "exec-btn", type: "button", text: "Enviar requisição" });
+      var out = el("div", { class: "response-out" });
+
+      btn.addEventListener("click", function () {
+        btn.disabled = true;
+        out.innerHTML = "";
+        var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+        var opts = { method: method.toUpperCase(), headers: { "Accept": "application/json" } };
+        if (hasBody) {
+          opts.headers["Content-Type"] = "application/json";
+          opts.body = textarea ? textarea.value : "{}";
+        }
+        fetch(path, opts)
+          .then(function (resp) {
+            var ct = resp.headers.get("content-type") || "";
+            return resp.text().then(function (text) {
+              var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+              renderResponse(out, resp.status, ct, text, Math.round(t1 - t0));
+            });
+          })
+          .catch(function (err) {
+            var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+            renderResponse(out, 0, "", "Falha de rede: " + err, Math.round(t1 - t0));
+          })
+          .then(function () { btn.disabled = false; });
+      });
+
+      panel.appendChild(btn);
+      panel.appendChild(out);
+      return panel;
+    }
+
+    function renderEndpoint(spec, path, method, op) {
+      var card = el("div", { class: "endpoint", id: slug(method, path) });
+      card.appendChild(el("div", { class: "endpoint-head" }, [
+        el("span", { class: "verb " + method, text: method }),
+        el("span", { class: "path", text: path })
+      ]));
+      if (op.summary) card.appendChild(el("div", { class: "summary", text: op.summary }));
+      if (op.description) card.appendChild(el("div", { class: "desc", text: op.description }));
+
+      // Documentação do corpo da requisição (schema dos campos)
+      var bodyExample = null;
+      var jsonBody = op.requestBody && op.requestBody.content
+              && op.requestBody.content["application/json"];
+      var hasBody = !!jsonBody;
+      if (hasBody) {
+        var media = jsonBody;
+        card.appendChild(el("div", { class: "section-label", text: "Corpo da requisição" }));
+        var schema = media.schema && media.schema.$ref ? resolveRef(spec, media.schema.$ref) : media.schema;
+        var table = renderSchemaTable(schema);
+        if (table) card.appendChild(table);
+        bodyExample = firstExample(media);
+      }
+
+      // Painel interativo (Try it out)
+      card.appendChild(buildTryPanel(method, path, hasBody, bodyExample));
+
+      // Documentação das respostas
+      if (op.responses) {
+        card.appendChild(el("div", { class: "section-label", text: "Respostas" }));
+        Object.keys(op.responses).forEach(function (code) {
+          var resp = op.responses[code];
+          card.appendChild(el("div", null, [
+            el("span", { class: statusClass(code), text: code }),
+            document.createTextNode("  " + (resp.description || ""))
+          ]));
+          var jsonMedia = resp.content && resp.content["application/json"];
+          var ex = firstExample(jsonMedia);
+          if (ex !== null) card.appendChild(el("pre", { text: pretty(ex) }));
+        });
+      }
+      return card;
+    }
+
+    function render(spec) {
+      var info = spec.info || {};
+      document.title = (info.title || "API") + " — Documentação";
+      document.getElementById("api-title").textContent = info.title || "API";
+      document.getElementById("api-version").textContent =
+        "v" + (info.version || "?") + " · OpenAPI " + (spec.openapi || "");
+      document.getElementById("main-title").textContent = info.title || "Documentação da API";
+      document.getElementById("main-desc").textContent = info.description || "";
+
+      var nav = document.getElementById("nav");
+      var content = document.getElementById("content");
+
+      var tagOrder = (spec.tags || []).map(function (t) { return t.name; });
+      var groups = {};
+      Object.keys(spec.paths).forEach(function (path) {
+        var item = spec.paths[path];
+        Object.keys(item).forEach(function (method) {
+          if (["get", "post", "put", "delete", "patch"].indexOf(method) === -1) return;
+          var op = item[method];
+          var tag = (op.tags && op.tags[0]) || "Outros";
+          if (!groups[tag]) groups[tag] = [];
+          groups[tag].push({ path: path, method: method, op: op });
+        });
+      });
+
+      var orderedTags = tagOrder.filter(function (t) { return groups[t]; });
+      Object.keys(groups).forEach(function (t) {
+        if (orderedTags.indexOf(t) === -1) orderedTags.push(t);
+      });
+
+      orderedTags.forEach(function (tag) {
+        var navGroup = el("div", { class: "nav-group" }, [
+          el("div", { class: "nav-group-title", text: tag })
+        ]);
+        groups[tag].forEach(function (e) {
+          var id = slug(e.method, e.path);
+          var navItem = el("div", { class: "nav-item" }, [
+            el("span", { class: "verb " + e.method, text: e.method }),
+            el("span", { text: e.path })
+          ]);
+          navItem.addEventListener("click", function () {
+            var target = document.getElementById(id);
+            if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+          navGroup.appendChild(navItem);
+          content.appendChild(renderEndpoint(spec, e.path, e.method, e.op));
+        });
+        nav.appendChild(navGroup);
+      });
+    }
+
+    function showError(message) {
+      var content = document.getElementById("content");
+      content.innerHTML = "";
+      content.appendChild(
+        el("div", { class: "error-box" }, [
+          el("strong", { text: "Não foi possível carregar /openapi.json" }),
+          el("div", { text: message })
+        ])
+      );
+    }
+
+    fetch("/openapi.json", { headers: { "Accept": "application/json" } })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(render)
+      .catch(function (err) { showError(String(err)); });
+  </script>
+</body>
+</html>
