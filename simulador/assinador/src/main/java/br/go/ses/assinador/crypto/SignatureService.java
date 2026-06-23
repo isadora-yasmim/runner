@@ -48,6 +48,11 @@ public class SignatureService {
         return token.describe();
     }
 
+    /** Verifica se o token esta pronto; lanca TokenException se nao estiver. */
+    public void requireReadiness() throws TokenException {
+        requirePresentToken();
+    }
+
     private void requirePresentToken() throws TokenException {
         if (!token.isPresent()) {
             throw new TokenException(

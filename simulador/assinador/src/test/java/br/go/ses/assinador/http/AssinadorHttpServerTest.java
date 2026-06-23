@@ -2,6 +2,9 @@ package br.go.ses.assinador.http;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import br.go.ses.assinador.model.SignatureData;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +16,9 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import br.go.ses.assinador.crypto.SignatureToken;
+import br.go.ses.assinador.model.SignatureData;
 
 /**
  * Testes de integração do AssinadorHttpServer.
@@ -60,8 +66,175 @@ class AssinadorHttpServerTest {
     }
 
     @Test
+    void health_GET_liveness_naoDeveExporToken() throws Exception {
+        // /health é liveness puro: apenas o status do processo, sem detalhe do
+        // subsistema de assinatura. A informação de token pertence a /ready.
+        HttpURLConnection conn = get("/health");
+        JsonNode body = readBody(conn);
+        assertFalse(body.get("data").has("token"));
+    }
+
+    @Test
     void health_POST_deveRetornarStatus405() throws Exception {
         HttpURLConnection conn = post("/health", "{}");
+        assertEquals(405, conn.getResponseCode());
+    }
+
+    // ------------------------------------------------------------------ /ready
+
+    @Test
+    void ready_GET_deveRetornarStatus200() throws Exception {
+        HttpURLConnection conn = get("/ready");
+        assertEquals(200, conn.getResponseCode());
+    }
+
+    @Test
+    void ready_GET_deveRetornarSuccessTrueEStatusReady() throws Exception {
+        HttpURLConnection conn = get("/ready");
+        JsonNode body = readBody(conn);
+        assertTrue(body.get("success").asBoolean());
+        assertEquals("READY", body.get("data").get("status").asText());
+    }
+
+    @Test
+    void ready_GET_readiness_deveExporTokenDisponivel() throws Exception {
+        // /ready é readiness: reflete que o subsistema de assinatura está apto.
+        HttpURLConnection conn = get("/ready");
+        JsonNode body = readBody(conn);
+        assertTrue(body.get("data").has("token"));
+    }
+
+    @Test
+    void ready_POST_deveRetornarStatus405() throws Exception {
+        HttpURLConnection conn = post("/ready", "{}");
+        assertEquals(405, conn.getResponseCode());
+    }
+
+    @Test
+    void ready_GET_quandoTokenIndisponivel_deveRetornarStatus503() throws Exception {
+    // Token que simula dispositivo ausente
+    SignatureToken tokenAusente = new SignatureToken() {
+        public SignatureData sign(byte[] content, char[] pin) { return null; }
+        public boolean verify(byte[] content, String signature) { return false; }
+        public boolean isPresent() { return false; } // ← indisponível
+        public String describe() { return "Token ausente (teste)"; }
+    };
+
+    AssinadorHttpServer servidorComTokenAusente =
+            new AssinadorHttpServer(0, tokenAusente).withTestMode();
+    servidorComTokenAusente.start();
+    int p = servidorComTokenAusente.getPort();
+
+    try {
+        HttpURLConnection conn = (HttpURLConnection)
+                URI.create("http://localhost:" + p + "/ready").toURL().openConnection();
+        conn.setRequestMethod("GET");
+
+        assertEquals(503, conn.getResponseCode());
+        JsonNode body = readBody(conn);
+        assertFalse(body.get("success").asBoolean());
+        assertEquals("NOT_READY", body.get("data").get("status").asText());
+    } finally {
+        servidorComTokenAusente.stop();
+    }
+}
+
+    // ----------------------------------------------- /health vs /ready distintos
+
+    @Test
+    void health_e_ready_saoEndpointsDistintos() throws Exception {
+        // Critério E4: liveness (/health) e readiness (/ready) são endpoints
+        // separados, com status e semântica distintos.
+        JsonNode health = readBody(get("/health"));
+        JsonNode ready = readBody(get("/ready"));
+
+        assertEquals("UP", health.get("data").get("status").asText());
+        assertEquals("READY", ready.get("data").get("status").asText());
+        assertNotEquals(health.get("message").asText(), ready.get("message").asText());
+        assertFalse(health.get("data").has("token"));
+        assertTrue(ready.get("data").has("token"));
+    }
+
+    // ------------------------------------------------------------------ /openapi.json
+
+    @Test
+    void openapi_GET_deveRetornarStatus200() throws Exception {
+        HttpURLConnection conn = get("/openapi.json");
+        assertEquals(200, conn.getResponseCode());
+    }
+
+    @Test
+    void openapi_GET_deveRetornarContentTypeApplicationJson() throws Exception {
+        HttpURLConnection conn = get("/openapi.json");
+        String contentType = conn.getHeaderField("Content-Type");
+        assertNotNull(contentType);
+        assertTrue(contentType.contains("application/json"),
+                "Content-Type esperado application/json, obtido: " + contentType);
+    }
+
+    @Test
+    void openapi_GET_deveRetornarDocumentoOpenApiValido() throws Exception {
+        HttpURLConnection conn = get("/openapi.json");
+        JsonNode spec = readBody(conn);
+        assertTrue(spec.has("openapi"));
+        assertTrue(spec.get("openapi").asText().startsWith("3."),
+                "Versão OpenAPI deve ser 3.x");
+        assertTrue(spec.has("paths"));
+    }
+
+    @Test
+    void openapi_GET_deveDescreverTodosOsEndpoints() throws Exception {
+        HttpURLConnection conn = get("/openapi.json");
+        JsonNode paths = readBody(conn).get("paths");
+        assertTrue(paths.has("/sign"));
+        assertTrue(paths.has("/validate"));
+        assertTrue(paths.has("/health"));
+        assertTrue(paths.has("/ready"));
+        assertTrue(paths.has("/stop"));
+    }
+
+    @Test
+    void openapi_POST_deveRetornarStatus405() throws Exception {
+        HttpURLConnection conn = post("/openapi.json", "{}");
+        assertEquals(405, conn.getResponseCode());
+    }
+
+    // ------------------------------------------------------------------ /docs
+
+    @Test
+    void docs_GET_deveRetornarStatus200() throws Exception {
+        HttpURLConnection conn = get("/docs");
+        assertEquals(200, conn.getResponseCode());
+    }
+
+    @Test
+    void docs_GET_deveRetornarContentTypeHtml() throws Exception {
+        HttpURLConnection conn = get("/docs");
+        String contentType = conn.getHeaderField("Content-Type");
+        assertNotNull(contentType);
+        assertTrue(contentType.contains("text/html"),
+                "Content-Type esperado text/html, obtido: " + contentType);
+    }
+
+    @Test
+    void docs_GET_deveRetornarHtmlQueConsomeOpenApiLocal() throws Exception {
+        String body = readBodyString(get("/docs"));
+        assertTrue(body.contains("<!DOCTYPE html>") || body.toLowerCase().contains("<html"));
+        assertTrue(body.contains("/openapi.json"),
+                "O console deve consumir o /openapi.json local");
+    }
+
+    @Test
+    void docs_GET_deveSerOfflineSemRecursosExternos() throws Exception {
+        // Requisito offline: nenhum src/href apontando para http(s) externo (sem CDN).
+        String body = readBodyString(get("/docs"));
+        assertFalse(body.matches("(?s).*(?:src|href)\\s*=\\s*[\"']https?://.*"),
+                "O console de documentação não pode depender de recursos externos");
+    }
+
+    @Test
+    void docs_POST_deveRetornarStatus405() throws Exception {
+        HttpURLConnection conn = post("/docs", "{}");
         assertEquals(405, conn.getResponseCode());
     }
 
@@ -235,5 +408,18 @@ class AssinadorHttpServerTest {
             return mapper.createObjectNode();
         }
         return mapper.readTree(stream.readAllBytes());
+    }
+
+    private String readBodyString(HttpURLConnection conn) throws Exception {
+        InputStream stream;
+        try {
+            stream = conn.getInputStream();
+        } catch (Exception e) {
+            stream = conn.getErrorStream();
+        }
+        if (stream == null) {
+            return "";
+        }
+        return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
     }
 }
