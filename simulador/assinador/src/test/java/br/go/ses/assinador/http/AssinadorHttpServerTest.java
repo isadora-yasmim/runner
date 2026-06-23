@@ -2,6 +2,9 @@ package br.go.ses.assinador.http;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import br.go.ses.assinador.model.SignatureData;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +16,9 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import br.go.ses.assinador.crypto.SignatureToken;
+import br.go.ses.assinador.model.SignatureData;
 
 /**
  * Testes de integração do AssinadorHttpServer.
@@ -103,6 +109,35 @@ class AssinadorHttpServerTest {
         HttpURLConnection conn = post("/ready", "{}");
         assertEquals(405, conn.getResponseCode());
     }
+
+    @Test
+    void ready_GET_quandoTokenIndisponivel_deveRetornarStatus503() throws Exception {
+    // Token que simula dispositivo ausente
+    SignatureToken tokenAusente = new SignatureToken() {
+        public SignatureData sign(byte[] content, char[] pin) { return null; }
+        public boolean verify(byte[] content, String signature) { return false; }
+        public boolean isPresent() { return false; } // ← indisponível
+        public String describe() { return "Token ausente (teste)"; }
+    };
+
+    AssinadorHttpServer servidorComTokenAusente =
+            new AssinadorHttpServer(0, tokenAusente).withTestMode();
+    servidorComTokenAusente.start();
+    int p = servidorComTokenAusente.getPort();
+
+    try {
+        HttpURLConnection conn = (HttpURLConnection)
+                URI.create("http://localhost:" + p + "/ready").toURL().openConnection();
+        conn.setRequestMethod("GET");
+
+        assertEquals(503, conn.getResponseCode());
+        JsonNode body = readBody(conn);
+        assertFalse(body.get("success").asBoolean());
+        assertEquals("NOT_READY", body.get("data").get("status").asText());
+    } finally {
+        servidorComTokenAusente.stop();
+    }
+}
 
     // ----------------------------------------------- /health vs /ready distintos
 

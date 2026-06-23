@@ -143,11 +143,11 @@ public class AssinadorHttpServer {
                     return;
                 }
 
-                // Costura para readiness real (ex.: PKCS#11, US-02.5): aqui o
-                // token simulado esta sempre disponivel apos a construcao.
-                if (signatureService == null) {
+                try {
+                    signatureService.requireReadiness();
+                } catch (TokenException e) {
                     sendResponse(exchange, 503,
-                            new ResponseOutput(false, "Assinador ainda nao esta pronto.",
+                            new ResponseOutput(false, e.getMessage(),
                                     Map.of("status", "NOT_READY")));
                     return;
                 }
