@@ -1,0 +1,75 @@
+@startuml sequencia-hubsaude
+title Sistema Runner - Ciclo de vida do Simulador (hubsaude start / status)
+
+actor Usuario
+participant "hubsaude (CLI Go)" as CLI
+participant "GitHub Releases\n(kyriosdata/runner)" as GH
+database "Cache local\n(~/.hubsaude/)" as Cache
+participant "simulador.jar\n(Spring Boot)" as JAR
+
+== hubsaude start ==
+
+Usuario -> CLI : hubsaude start [--port]
+activate CLI
+
+CLI -> GH : GET /releases (filtra tag hubsaude-validador-ui-*)
+activate GH
+GH --> CLI : release mais recente (tag, asset -exec.jar, checksums.txt)
+deactivate GH
+
+CLI -> Cache : JAR desta versao ja existe?
+activate Cache
+Cache --> CLI : presente / ausente
+deactivate Cache
+
+alt JAR ausente no cache
+    CLI -> GH : baixa simulador.jar (download atomico)
+    activate GH
+    GH --> CLI : bytes do JAR
+    deactivate GH
+    CLI -> GH : baixa checksums.txt
+    activate GH
+    GH --> CLI : linha sha256sum
+    deactivate GH
+    CLI -> CLI : verifica SHA256
+    alt checksum invalido
+        CLI -> Cache : remove arquivo corrompido
+        CLI --> Usuario : erro de integridade (exit 2)
+    else checksum valido
+        CLI -> Cache : grava JAR no cache
+    end
+else JAR em cache
+    CLI -> CLI : reutiliza (download dispensado)
+end
+
+CLI -> CLI : porta livre?
+alt porta ocupada
+    CLI --> Usuario : porta em uso, use --port (exit 1)
+else porta livre
+    CLI -> JAR : java -jar simulador.jar --server.port
+    activate JAR
+    CLI -> Cache : registra PID e porta (simulador.pid)
+    CLI --> Usuario : iniciado (PID, porta)
+    deactivate JAR
+end
+deactivate CLI
+
+== hubsaude status ==
+
+Usuario -> CLI : hubsaude status [--port]
+activate CLI
+CLI -> Cache : le PID e porta registrados
+activate Cache
+Cache --> CLI : PID, porta
+deactivate Cache
+
+CLI -> CLI : liveness (processo existe?)
+CLI -> JAR : GET /actuator/health
+activate JAR
+JAR --> CLI : 200 UP  (fallback: porta TCP aberta)
+deactivate JAR
+
+CLI --> Usuario : liveness + readiness
+deactivate CLI
+
+@enduml

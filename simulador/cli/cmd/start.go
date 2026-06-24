@@ -67,7 +67,10 @@ Exemplos:
 
 func init() {
 	rootCmd.AddCommand(startCmd)
+}
 
+func init() {
+	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().IntVar(
 		&startTimeout,
 		"timeout",

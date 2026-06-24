@@ -566,16 +566,17 @@ O modo local com `--local` está previsto, mas ainda está em desenvolvimento.
 | Detecção inicial do Java via PATH                  | ✅ Implementado                                 |
 | Validação da existência do `assinador.jar`         | ✅ Implementado                                 |
 | CI — GitHub Actions multiplataforma                | ✅ Implementado                                 |
-| Release workflow com SHA256 e Cosign               | 🔧 Implementado, aguardando validação completa |
-| CLI Go — modo local `--local`                      | 🔧 Em andamento                                |
-| Provisionamento automático do JDK                  | 🔧 Em andamento                                |
-| Simulador HubSaúde                                 | 📋 Planejado                                   |
+| Release workflow com SHA256 e Cosign               | ✅ Implementado                                 |
+| CLI Go — modo local `--local`                      | ✅ Implementado                                 |
+| Provisionamento automático do JDK                  | ✅ Implementado                                 |
+| Simulador HubSaúde                                 | ✅ Implementado                                 |
 | Testes Go de contrato CLI ↔ JAR                    | 📋 Planejado                                   |
-| Makefile / build único                             | 📋 Planejado                                   |
+| Makefile / build único                             | ✅ Implementado                                 |
 
 ---
 
-
+<!-- 🔧 Em andamento   📋 Planejado  ✅ Implementado -->
+S
 ## Licença
 
 O módulo CLI possui licença Apache License 2.0, disponível em:

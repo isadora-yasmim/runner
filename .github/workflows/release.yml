@@ -143,22 +143,34 @@ jobs:
           MODULE=$(head -1 go.mod | awk '{print $2}')
           echo "Módulo Go: ${MODULE}"
 
+          # Binário 1: assinatura (pacote main na raiz de simulador/cli)
           BINARY="assinatura-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
-
           go build \
             -ldflags "-X '${MODULE}/cmd.Version=${VERSION}' \
                       -X '${MODULE}/cmd.Commit=${COMMIT}'" \
             -o "${BINARY}" \
             .
-
           echo "BINARY=${BINARY}" >> "$GITHUB_ENV"
           ls -lh "${BINARY}"
 
-      - name: Upload do binário como artifact interno
+          # Binário 2: hubsaude (pacote main em simulador/cli/hubsaude)
+          # Gerencia o ciclo de vida do Simulador do HubSaúde (US-03).
+          BINARY_HUB="hubsaude-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
+          go build \
+            -ldflags "-X '${MODULE}/hubsaude/cmd.Version=${VERSION}' \
+                      -X '${MODULE}/hubsaude/cmd.Commit=${COMMIT}'" \
+            -o "${BINARY_HUB}" \
+            ./hubsaude
+          echo "BINARY_HUB=${BINARY_HUB}" >> "$GITHUB_ENV"
+          ls -lh "${BINARY_HUB}"
+
+      - name: Upload dos binários como artifact interno
         uses: actions/upload-artifact@v4
         with:
           name: go-binary-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: simulador/cli/${{ env.BINARY }}
+          path: |
+            simulador/cli/${{ env.BINARY }}
+            simulador/cli/${{ env.BINARY_HUB }}
           if-no-files-found: error
           retention-days: 1
 
@@ -214,7 +226,7 @@ jobs:
         env:
           COSIGN_YES: "true"
         run: |
-          for f in assinatura-* assinador.jar; do
+          for f in assinatura-* hubsaude-* assinador.jar; do
             echo "Assinando: ${f}"
             cosign sign-blob \
               --output-signature "${f}.sig" \
@@ -232,12 +244,15 @@ jobs:
 
           ### Downloads
 
-          | Plataforma       | Arquivo                                               |
-          |-----------------|-------------------------------------------------------|
-          | Linux (amd64)   | `assinatura-${{ github.ref_name }}-linux-amd64`       |
-          | Windows (amd64) | `assinatura-${{ github.ref_name }}-windows-amd64.exe` |
-          | macOS (amd64)   | `assinatura-${{ github.ref_name }}-darwin-amd64`      |
-          | Assinador (JAR) | `assinador.jar`                                       |
+          | Aplicação  | Plataforma       | Arquivo                                               |
+          |-----------|-----------------|-------------------------------------------------------|
+          | assinatura | Linux (amd64)   | `assinatura-${{ github.ref_name }}-linux-amd64`       |
+          | assinatura | Windows (amd64) | `assinatura-${{ github.ref_name }}-windows-amd64.exe` |
+          | assinatura | macOS (amd64)   | `assinatura-${{ github.ref_name }}-darwin-amd64`      |
+          | hubsaude   | Linux (amd64)   | `hubsaude-${{ github.ref_name }}-linux-amd64`         |
+          | hubsaude   | Windows (amd64) | `hubsaude-${{ github.ref_name }}-windows-amd64.exe`   |
+          | hubsaude   | macOS (amd64)   | `hubsaude-${{ github.ref_name }}-darwin-amd64`        |
+          | Assinador  | (JVM)           | `assinador.jar`                                       |
 
           ### Verificar integridade
 
@@ -270,6 +285,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/assinatura-*
+            dist/hubsaude-*
             dist/assinador.jar
             dist/checksums-*.txt
             dist/*.sig
