@@ -34,8 +34,11 @@ O CLI (`assinatura`) se comunica com o `assinador.jar` de dois modos:
 | Maven      |                             3.9 | `mvn -version`  |
 | Git        |            versão atual estável | `git --version` |
 
-> O JDK deve estar disponível no `PATH`. O CLI já realiza uma detecção inicial do Java antes de iniciar o `assinador.jar` e exibe mensagem orientativa caso o Java não seja encontrado.
-
+> **Provisionamento automático do JDK:** caso o JDK não esteja instalado ou
+> seja inferior à versão 21, o CLI detecta automaticamente e baixa o JDK 21
+> via [Adoptium](https://adoptium.net), armazenando em `~/.hubsaude/jdk/`.
+> O download ocorre apenas uma vez — nas execuções seguintes o JDK provisionado
+> é reutilizado. Caso o download falhe, o CLI exibe orientação para instalação manual.
 ---
 
 ## Como obter o projeto
