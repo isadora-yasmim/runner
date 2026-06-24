@@ -24,7 +24,6 @@ func TestIsServerRunning_ServidorAtivo_DeveRetornarTrue(t *testing.T) {
 }
 
 func TestIsServerRunning_ServidorInativo_DeveRetornarFalse(t *testing.T) {
-	// Porta fechada garantida: abre, fecha e usa o número livre
 	port := freePort(t)
 	if isServerRunning(port) {
 		t.Errorf("esperava false para porta fechada %d", port)
@@ -43,11 +42,12 @@ func TestIsServerRunning_ServidorRetorna500_DeveRetornarFalse(t *testing.T) {
 	}
 }
 
-// ------------------------------------------------------------------ checkJavaInstalled
+// ------------------------------------------------------------------ resolveJava
 
-func TestCheckJavaInstalled_JavaPresente_NaoDeveRetornarErro(t *testing.T) {
-	// Em CI o Java está disponível (setup-java no workflow)
-	if err := checkJavaInstalled(); err != nil {
+func TestResolveJava_JavaPresente_NaoDeveRetornarErro(t *testing.T) {
+	// Em CI o Java está disponível (setup-java no workflow).
+	// resolveJava substitui checkJavaInstalled: detecta versão e provisiona se necessário.
+	if _, err := resolveJava(); err != nil {
 		t.Skipf("Java não encontrado no ambiente de teste: %v", err)
 	}
 }
@@ -55,8 +55,6 @@ func TestCheckJavaInstalled_JavaPresente_NaoDeveRetornarErro(t *testing.T) {
 // ------------------------------------------------------------------ getAssinadorJarPath
 
 func TestGetAssinadorJarPath_JarAusente_DeveRetornarErroDescritivo(t *testing.T) {
-	// Em ambiente de teste o JAR não existe no path relativo padrão; isso é esperado.
-	// O teste valida que a mensagem de erro é descritiva (contém orientação para o usuário).
 	_, err := getAssinadorJarPath()
 	if err == nil {
 		t.Skip("JAR encontrado no path padrão — pulando teste de ausência")
@@ -65,7 +63,6 @@ func TestGetAssinadorJarPath_JarAusente_DeveRetornarErroDescritivo(t *testing.T)
 	if len(msg) == 0 {
 		t.Error("mensagem de erro não pode ser vazia")
 	}
-	// Critério "Falhar bem": mensagem deve orientar o usuário
 	if !containsAny(msg, "assinador", "mvn", "jar") {
 		t.Errorf("mensagem de erro pouco descritiva: %q", msg)
 	}
@@ -79,7 +76,6 @@ func TestWaitForServer_ServidorJaAtivo_DeveRetornarNil(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// Aponta serverPort para o servidor de teste
 	original := serverPort
 	serverPort = portFromURL(t, srv.URL)
 	defer func() { serverPort = original }()
@@ -113,7 +109,6 @@ func TestIsServerRunning_HealthRetornaJSON_DeveRetornarTrue(t *testing.T) {
 
 func portFromURL(t *testing.T, rawURL string) int {
 	t.Helper()
-	// rawURL é do tipo "http://127.0.0.1:PORTA"
 	_, portStr, err := net.SplitHostPort(rawURL[len("http://"):])
 	if err != nil {
 		t.Fatalf("não foi possível extrair porta de %q: %v", rawURL, err)

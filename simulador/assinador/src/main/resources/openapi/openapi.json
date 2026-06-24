@@ -1,0 +1,375 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Assinador HTTP API",
+    "version": "1.0.0",
+    "description": "Contrato HTTP do assinador.jar do Sistema Runner. Expoe operacoes simuladas de criacao e validacao de assinatura digital, alem de endpoints operacionais de liveness (/health), readiness (/ready) e shutdown (/stop). Este documento e a fonte unica do contrato entre o CLI (Go) e o assinador.jar (Java): parametros, formato de saida e codigos de erro.",
+    "license": {
+      "name": "Apache-2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Instancia local padrao (porta configuravel via --port)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Operacao",
+      "description": "Endpoints operacionais: liveness, readiness e shutdown."
+    },
+    {
+      "name": "Assinatura",
+      "description": "Operacoes de assinatura digital simulada."
+    },
+    {
+      "name": "Documentacao",
+      "description": "Contrato OpenAPI e console de documentacao offline."
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Operacao"],
+        "summary": "Liveness do processo",
+        "description": "Confirma que o processo do assinador esta vivo e respondendo. NAO indica que o subsistema de assinatura esta pronto para uso; para isso, consulte /ready.",
+        "responses": {
+          "200": {
+            "description": "Processo vivo.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" },
+                "example": {
+                  "success": true,
+                  "message": "Assinador HTTP ativo",
+                  "data": { "status": "UP" }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao permitido (apenas GET).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": ["Operacao"],
+        "summary": "Readiness do subsistema de assinatura",
+        "description": "Indica que o assinador esta apto a processar requisicoes de assinatura/validacao (token disponivel). E distinto de /health: o processo pode estar vivo (/health = 200) mas ainda nao pronto (/ready = 503).",
+        "responses": {
+          "200": {
+            "description": "Pronto para receber requisicoes.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" },
+                "example": {
+                  "success": true,
+                  "message": "Assinador pronto para requisicoes",
+                  "data": { "status": "READY", "token": "Token simulado (FakeSignatureToken)" }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Processo vivo, porem ainda nao pronto (ex.: token indisponivel).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" },
+                "example": {
+                  "success": false,
+                  "message": "Assinador ainda nao esta pronto.",
+                  "data": { "status": "NOT_READY" }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao permitido (apenas GET).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sign": {
+      "post": {
+        "tags": ["Assinatura"],
+        "summary": "Cria uma assinatura digital simulada",
+        "description": "Recebe documento e PIN do token e retorna uma assinatura simulada. A validacao de parametros e autoridade do assinador.jar (criterio E3).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignRequest" },
+              "example": { "document": "contrato.pdf", "tokenPin": "1234" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assinatura criada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" },
+                "example": {
+                  "success": true,
+                  "message": "Assinatura criada com sucesso (Simulacao)",
+                  "data": {
+                    "signatureHash": "mock_hash_abc123_base64_encoded_signature_simulated",
+                    "algorithm": "SHA256withRSA"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro do usuario: parametro ausente ou invalido.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" },
+                "example": {
+                  "success": false,
+                  "message": "O PIN do token deve conter pelo menos 4 caracteres.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao permitido (apenas POST).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno do servidor.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          },
+          "503": {
+            "description": "Erro de sistema: dispositivo criptografico indisponivel.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/validate": {
+      "post": {
+        "tags": ["Assinatura"],
+        "summary": "Valida uma assinatura digital simulada",
+        "description": "Recebe documento e assinatura e indica se e valida. Tanto valido quanto invalido retornam 200; o resultado e expresso no campo success/data. Parametros ausentes retornam 400.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ValidateRequest" },
+              "example": {
+                "document": "contrato.pdf",
+                "signature": "mock_hash_abc123_base64_encoded_signature_simulated"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado da validacao (valida ou invalida).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" },
+                "examples": {
+                  "valida": {
+                    "summary": "Assinatura valida",
+                    "value": { "success": true, "message": "Assinatura valida.", "data": true }
+                  },
+                  "invalida": {
+                    "summary": "Assinatura invalida",
+                    "value": { "success": false, "message": "Assinatura invalida ou corrompida.", "data": false }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro do usuario: parametro ausente ou invalido.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao permitido (apenas POST).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno do servidor.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          },
+          "503": {
+            "description": "Erro de sistema: dispositivo criptografico indisponivel.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stop": {
+      "post": {
+        "tags": ["Operacao"],
+        "summary": "Encerra o servidor",
+        "description": "Solicita o encerramento controlado do servidor HTTP. Responde 200 antes de iniciar o shutdown assincrono.",
+        "responses": {
+          "200": {
+            "description": "Encerramento aceito.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" },
+                "example": {
+                  "success": true,
+                  "message": "Servidor encerrado com sucesso.",
+                  "data": null
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Metodo nao permitido (apenas POST).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResponseOutput" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": ["Documentacao"],
+        "summary": "Especificacao OpenAPI desta API",
+        "description": "Retorna este proprio documento OpenAPI 3.x, embarcado como recurso estatico no JAR.",
+        "responses": {
+          "200": {
+            "description": "Documento OpenAPI.",
+            "content": { "application/json": {} }
+          },
+          "405": { "description": "Metodo nao permitido (apenas GET)." }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "tags": ["Documentacao"],
+        "summary": "Console de documentacao offline",
+        "description": "Renderiza um console navegavel da API que consome /openapi.json. Funciona totalmente offline, sem qualquer dependencia de rede externa (sem CDN).",
+        "responses": {
+          "200": {
+            "description": "Pagina HTML do console.",
+            "content": { "text/html": {} }
+          },
+          "405": { "description": "Metodo nao permitido (apenas GET)." }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ResponseOutput": {
+        "type": "object",
+        "description": "Envelope padrao de todas as respostas da API.",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida."
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem legivel descrevendo o resultado."
+          },
+          "data": {
+            "nullable": true,
+            "description": "Carga util especifica da operacao; pode ser nula, um objeto (ex.: SignatureData) ou um booleano (ex.: resultado de /validate)."
+          }
+        },
+        "required": ["success", "message"]
+      },
+      "SignatureData": {
+        "type": "object",
+        "description": "Dados de uma assinatura simulada.",
+        "properties": {
+          "signatureHash": {
+            "type": "string",
+            "example": "mock_hash_abc123_base64_encoded_signature_simulated"
+          },
+          "algorithm": {
+            "type": "string",
+            "example": "SHA256withRSA"
+          }
+        },
+        "required": ["signatureHash", "algorithm"]
+      },
+      "SignRequest": {
+        "type": "object",
+        "description": "Corpo da requisicao de criacao de assinatura.",
+        "properties": {
+          "document": {
+            "type": "string",
+            "description": "Caminho ou conteudo do documento a ser assinado."
+          },
+          "tokenPin": {
+            "type": "string",
+            "description": "PIN do dispositivo criptografico (minimo 4 caracteres)."
+          }
+        },
+        "required": ["document", "tokenPin"]
+      },
+      "ValidateRequest": {
+        "type": "object",
+        "description": "Corpo da requisicao de validacao de assinatura.",
+        "properties": {
+          "document": {
+            "type": "string",
+            "description": "Documento original."
+          },
+          "signature": {
+            "type": "string",
+            "description": "Hash ou conteudo da assinatura a validar."
+          }
+        },
+        "required": ["document", "signature"]
+      }
+    }
+  }
+}

@@ -10,43 +10,86 @@ import br.go.ses.assinador.model.SignatureData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 public class AssinadorHttpServer {
 
     private final int port;
     private final SignatureService signatureService;
+    private final long inactivityTimeoutMillis;
     private HttpServer server;
     private boolean testMode = false;
 
+    private ScheduledExecutorService inactivityScheduler;
+    private ScheduledFuture<?> shutdownTask;
+
     private static final ObjectMapper mapper = new ObjectMapper();
+
+    // Recursos estaticos do contrato da API, embarcados no JAR (src/main/resources).
+    private static final String OPENAPI_RESOURCE = "/openapi/openapi.json";
+    private static final String DOCS_RESOURCE = "/openapi/docs.html";
+
+    private static final String CONTENT_TYPE_JSON = "application/json; charset=utf-8";
+    private static final String CONTENT_TYPE_HTML = "text/html; charset=utf-8";
 
     /**
      * Construtor de conveniencia: mantem compatibilidade com chamadas
-     * existentes, usando o token simulado por padrao.
+     * existentes, usando o token simulado por padrao e sem auto-shutdown.
      */
     public AssinadorHttpServer(int port) {
         this(port, TokenFactory.create(false));
     }
 
     /**
-     * Construtor principal: o transporte (HTTP) recebe o token a ser usado
-     * pelo dominio, sem conhecer sua implementacao concreta.
+     * Construtor com token explicito, sem auto-shutdown por inatividade.
      */
     public AssinadorHttpServer(int port, SignatureToken token) {
-        this.port = port;
-        this.signatureService = new SignatureService(token);
+        this(port, token, 0L);
     }
 
     /**
-     * Ativa o modo de teste: o endpoint /stop encerra apenas o HttpServer,
-     * sem chamar System.exit(), evitando matar a JVM do Surefire.
+     * Construtor principal: o transporte (HTTP) recebe o token a ser usado
+     * pelo dominio, sem conhecer sua implementacao concreta, e a janela de
+     * inatividade em minutos.
+     *
+     * @param inactivityTimeoutMinutes minutos de inatividade antes do
+     *        auto-shutdown. Valor <= 0 desativa o recurso.
+     */
+    public AssinadorHttpServer(int port, SignatureToken token, long inactivityTimeoutMinutes) {
+        this.port = port;
+        this.signatureService = new SignatureService(token);
+        this.inactivityTimeoutMillis =
+                inactivityTimeoutMinutes > 0
+                        ? TimeUnit.MINUTES.toMillis(inactivityTimeoutMinutes)
+                        : 0L;
+    }
+
+    /**
+     * Construtor package-private para testes: permite janelas curtas em
+     * qualquer unidade de tempo sem expor isso na API publica.
+     */
+    AssinadorHttpServer(int port, SignatureToken token, long timeout, TimeUnit unit) {
+        this.port = port;
+        this.signatureService = new SignatureService(token);
+        this.inactivityTimeoutMillis = timeout > 0 ? unit.toMillis(timeout) : 0L;
+    }
+
+    /**
+     * Ativa o modo de teste: o endpoint /stop e o auto-shutdown encerram
+     * apenas o HttpServer, sem chamar System.exit(), evitando matar a JVM
+     * do Surefire.
      */
     public AssinadorHttpServer withTestMode() {
         this.testMode = true;
@@ -64,7 +107,10 @@ public class AssinadorHttpServer {
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress(port), 0);
 
-        server.createContext("/health", exchange -> {
+        // ---------------------------------------------------------------- /health
+        // Liveness: confirma apenas que o processo esta vivo e respondendo.
+        // A informacao do subsistema de assinatura (token) pertence a /ready.
+        server.createContext("/health", withActivityTracking(exchange -> {
             try {
                 if (!"GET".equals(exchange.getRequestMethod())) {
                     sendResponse(exchange, 405,
@@ -75,7 +121,7 @@ public class AssinadorHttpServer {
                 ResponseOutput response = new ResponseOutput(
                         true,
                         "Assinador HTTP ativo",
-                        Map.of("status", "UP", "token", signatureService.tokenDescription())
+                        Map.of("status", "UP")
                 );
 
                 sendResponse(exchange, 200, response);
@@ -84,9 +130,44 @@ public class AssinadorHttpServer {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
-        });
+        }));
 
-        server.createContext("/sign", exchange -> {
+        // ---------------------------------------------------------------- /ready
+        // Readiness: confirma que o subsistema de assinatura (token) esta apto
+        // a processar requisicoes. Endpoint distinto de /health (criterio E4).
+        server.createContext("/ready", withActivityTracking(exchange -> {
+            try {
+                if (!"GET".equals(exchange.getRequestMethod())) {
+                    sendResponse(exchange, 405,
+                            new ResponseOutput(false, "Metodo nao permitido", null));
+                    return;
+                }
+
+                try {
+                    signatureService.requireReadiness();
+                } catch (TokenException e) {
+                    sendResponse(exchange, 503,
+                            new ResponseOutput(false, e.getMessage(),
+                                    Map.of("status", "NOT_READY")));
+                    return;
+                }
+
+                ResponseOutput response = new ResponseOutput(
+                        true,
+                        "Assinador pronto para requisicoes",
+                        Map.of("status", "READY", "token", signatureService.tokenDescription())
+                );
+
+                sendResponse(exchange, 200, response);
+
+            } catch (IOException e) {
+                sendResponse(exchange, 500,
+                        new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
+            }
+        }));
+
+        // ---------------------------------------------------------------- /sign
+        server.createContext("/sign", withActivityTracking(exchange -> {
             try {
                 if (!"POST".equals(exchange.getRequestMethod())) {
                     sendResponse(exchange, 405,
@@ -117,9 +198,10 @@ public class AssinadorHttpServer {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
-        });
+        }));
 
-        server.createContext("/validate", exchange -> {
+        // ---------------------------------------------------------------- /validate
+        server.createContext("/validate", withActivityTracking(exchange -> {
             try {
                 if (!"POST".equals(exchange.getRequestMethod())) {
                     sendResponse(exchange, 405,
@@ -153,9 +235,46 @@ public class AssinadorHttpServer {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
-        });
+        }));
 
-        server.createContext("/stop", exchange -> {
+        // ---------------------------------------------------------------- /openapi.json
+        // Contrato OpenAPI da API, servido como recurso estatico embarcado.
+        server.createContext("/openapi.json", withActivityTracking(exchange -> {
+            try {
+                if (!"GET".equals(exchange.getRequestMethod())) {
+                    sendResponse(exchange, 405,
+                            new ResponseOutput(false, "Metodo nao permitido", null));
+                    return;
+                }
+
+                sendStaticResource(exchange, OPENAPI_RESOURCE, CONTENT_TYPE_JSON);
+
+            } catch (IOException e) {
+                sendResponse(exchange, 500,
+                        new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
+            }
+        }));
+
+        // ---------------------------------------------------------------- /docs
+        // Console de documentacao offline (consome /openapi.json local; sem CDN).
+        server.createContext("/docs", withActivityTracking(exchange -> {
+            try {
+                if (!"GET".equals(exchange.getRequestMethod())) {
+                    sendResponse(exchange, 405,
+                            new ResponseOutput(false, "Metodo nao permitido", null));
+                    return;
+                }
+
+                sendStaticResource(exchange, DOCS_RESOURCE, CONTENT_TYPE_HTML);
+
+            } catch (IOException e) {
+                sendResponse(exchange, 500,
+                        new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
+            }
+        }));
+
+        // ---------------------------------------------------------------- /stop
+        server.createContext("/stop", withActivityTracking(exchange -> {
             try {
                 if (!"POST".equals(exchange.getRequestMethod())) {
                     sendResponse(exchange, 405,
@@ -169,7 +288,7 @@ public class AssinadorHttpServer {
                 Thread shutdownThread = new Thread(() -> {
                     try {
                         Thread.sleep(500);
-                        server.stop(0);
+                        stop();
                         if (!testMode) {
                             System.exit(0);
                         }
@@ -189,16 +308,72 @@ public class AssinadorHttpServer {
                 sendResponse(exchange, 500,
                         new ResponseOutput(false, "Erro interno: " + e.getMessage(), null));
             }
-        });
+        }));
 
         server.setExecutor(null);
         server.start();
+
+        startInactivityTimer();
     }
 
     public void stop() {
+        if (inactivityScheduler != null) {
+            inactivityScheduler.shutdownNow();
+        }
         if (server != null) {
             server.stop(0);
         }
+    }
+
+    /**
+     * Envolve um handler para que cada requisicao recebida reinicie o
+     * timer de inatividade antes de delegar ao handler real.
+     */
+    private HttpHandler withActivityTracking(HttpHandler delegate) {
+        return exchange -> {
+            resetInactivityTimer();
+            delegate.handle(exchange);
+        };
+    }
+
+    private void startInactivityTimer() {
+        if (inactivityTimeoutMillis <= 0) {
+            return;
+        }
+
+        inactivityScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "inactivity-shutdown");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        System.out.println(
+                "Auto-shutdown por inatividade ativo: "
+                        + inactivityTimeoutMillis + " ms sem requisicoes encerra o servidor.");
+
+        scheduleShutdown();
+    }
+
+    private synchronized void resetInactivityTimer() {
+        if (inactivityScheduler == null) {
+            return;
+        }
+        if (shutdownTask != null) {
+            shutdownTask.cancel(false);
+        }
+        scheduleShutdown();
+    }
+
+    private synchronized void scheduleShutdown() {
+        shutdownTask = inactivityScheduler.schedule(() -> {
+            System.out.println(
+                    "Servidor encerrado por inatividade ("
+                            + inactivityTimeoutMillis + " ms sem requisicoes).");
+            stop();
+            if (!testMode) {
+                System.exit(0);
+            }
+        }, inactivityTimeoutMillis, TimeUnit.MILLISECONDS);
     }
 
     private JsonNode readJsonBody(HttpExchange exchange) throws IOException {
@@ -217,6 +392,34 @@ public class AssinadorHttpServer {
         }
 
         return body.get(fieldName).asText();
+    }
+
+    /**
+     * Serve um recurso estatico embarcado no JAR (classpath). Usado para o
+     * contrato OpenAPI e para o console de documentacao offline.
+     */
+    private void sendStaticResource(
+            HttpExchange exchange,
+            String resourcePath,
+            String contentType
+    ) throws IOException {
+
+        try (InputStream is = AssinadorHttpServer.class.getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                sendResponse(exchange, 500,
+                        new ResponseOutput(false, "Recurso nao encontrado: " + resourcePath, null));
+                return;
+            }
+
+            byte[] bytes = is.readAllBytes();
+
+            exchange.getResponseHeaders().add("Content-Type", contentType);
+            exchange.sendResponseHeaders(200, bytes.length);
+
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(bytes);
+            }
+        }
     }
 
     private void sendResponse(

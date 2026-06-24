@@ -34,8 +34,11 @@ O CLI (`assinatura`) se comunica com o `assinador.jar` de dois modos:
 | Maven      |                             3.9 | `mvn -version`  |
 | Git        |            versão atual estável | `git --version` |
 
-> O JDK deve estar disponível no `PATH`. O CLI já realiza uma detecção inicial do Java antes de iniciar o `assinador.jar` e exibe mensagem orientativa caso o Java não seja encontrado.
-
+> **Provisionamento automático do JDK:** caso o JDK não esteja instalado ou
+> seja inferior à versão 21, o CLI detecta automaticamente e baixa o JDK 21
+> via [Adoptium](https://adoptium.net), armazenando em `~/.hubsaude/jdk/`.
+> O download ocorre apenas uma vez — nas execuções seguintes o JDK provisionado
+> é reutilizado. Caso o download falhe, o CLI exibe orientação para instalação manual.
 ---
 
 ## Como obter o projeto
@@ -352,6 +355,44 @@ vX.Y.Z
 Ele está configurado para gerar binários multiplataforma, checksums SHA256 e assinaturas com Cosign.
 
 A infraestrutura de release está implementada, mas a validação completa de uma release real depende da criação e publicação de uma tag.
+
+---
+
+### Verificação de integridade e autenticidade
+
+Cada release publica:
+
+- Binários multiplataforma (`linux`, `windows` e `darwin`)
+- Arquivo de checksums SHA256
+- Assinaturas Cosign (`.sig`)
+- Certificados Cosign (`.pem`)
+
+#### Verificar integridade (SHA256)
+
+Após baixar os arquivos da release:
+
+```bash
+sha256sum --check checksums-vX.Y.Z.txt
+```
+
+O comando deve indicar `OK` para todos os artefatos.
+
+#### Verificar autenticidade (Cosign)
+
+Exemplo para o binário Linux:
+
+```bash
+cosign verify-blob \
+  --certificate assinatura-vX.Y.Z-linux-amd64.pem \
+  --signature assinatura-vX.Y.Z-linux-amd64.sig \
+  --certificate-identity-regexp "https://github.com/isadora-yasmim/runner/.*" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  assinatura-vX.Y.Z-linux-amd64
+```
+
+Para Windows ou macOS, substitua os nomes dos arquivos pelo artefato correspondente da release.
+
+A verificação confirma que o artefato foi gerado pelo workflow oficial do projeto utilizando assinatura keyless via GitHub Actions OIDC e registrado no Transparency Log da Sigstore.
 
 ---
 

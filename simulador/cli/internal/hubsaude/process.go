@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/isadora-yasmim/simulador/internal/jdk"
 )
 
 // DefaultPort é a porta padrão do Simulador HubSaúde (Spring Boot).
@@ -37,20 +39,11 @@ func PortAvailable(port int) bool {
 	return true
 }
 
-// checkJavaInstalled garante que o java esteja no PATH. Mantido aqui para que
-// o pacote hubsaude seja autocontido; mensagens diferenciam SO para orientar
-// a correção (critério "falhar bem").
-func checkJavaInstalled() error {
-	if err := exec.Command("java", "-version").Run(); err != nil {
-		return errors.New(
-			"java não encontrado no PATH\n→ instale o JDK 21+: https://adoptium.net\n→ após instalar, reinicie o terminal",
-		)
-	}
-	return nil
-}
-
 // Start inicia o simulador.jar como processo em background na porta indicada,
 // registrando PID e porta em ~/.hubsaude/simulador.pid.
+//
+// Usa jdk.ResolveJava() para garantir Java 21+ disponível, provisionando
+// automaticamente se necessário (US-04.1).
 //
 // Retorna erro de usuário (exit 1) para porta ocupada e erro de sistema
 // (exit 2) para JVM ausente ou falha ao iniciar — a separação é feita pelo
@@ -67,12 +60,14 @@ func Start(jarPath string, port int) (int, error) {
 		)
 	}
 
-	if err := checkJavaInstalled(); err != nil {
+	// Garante Java 21+ disponível, provisionando automaticamente se necessário.
+	javaPath, err := jdk.ResolveJava()
+	if err != nil {
 		return 0, err
 	}
 
 	// O JAR é Spring Boot: a porta é configurada via --server.port.
-	cmd := exec.Command("java", "-jar", jarPath, "--server.port="+strconv.Itoa(port))
+	cmd := exec.Command(javaPath, "-jar", jarPath, "--server.port="+strconv.Itoa(port))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -117,7 +112,7 @@ type Status struct {
 	Registered bool // há PID registrado
 	PID        int
 	Port       int
-	Alive      bool // processo existe (health: processo subiu)
+	Alive      bool // processo existe (liveness: processo subiu)
 	Ready      bool // /actuator/health respondeu UP (readiness)
 }
 
@@ -172,7 +167,6 @@ func actuatorHealthUP(port int) bool {
 		Status string `json:"status"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		// 200 sem corpo parseável: trata como pronto (o endpoint respondeu).
 		return true
 	}
 	return strings.EqualFold(payload.Status, "UP")
