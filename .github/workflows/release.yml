@@ -35,10 +35,10 @@ jobs:
   # 1. Build do fat JAR
   #    Raiz do módulo: simulador/assinador/
   #
-  #    ATENÇÃO: o pom.xml atual gera assinador-1.0-SNAPSHOT.jar.
-  #    Adicione <finalName>assinador</finalName> no maven-shade-plugin
-  #    para gerar sempre assinador.jar, independente da versão.
-  #    Enquanto isso não for feito, o step de rename abaixo cobre o caso.
+  #    O pom.xml usa <finalName>assinador</finalName> no maven-shade-plugin,
+  #    então o Maven já gera target/assinador.jar diretamente.
+  #    O step de rename abaixo é tolerante: cobre tanto o caso novo
+  #    (assinador.jar) quanto o legado (assinador-<versão>.jar).
   # ─────────────────────────────────────────────
   build-jar:
     name: Build assinador.jar
@@ -63,14 +63,17 @@ jobs:
       - name: Build e testes (mvn package)
         run: mvn --batch-mode -e package -DskipTests=false
 
-      # Padroniza o nome do JAR para 'assinador.jar' independente da versão.
-      # Quando o pom.xml tiver <finalName>assinador</finalName>, este step
-      # pode ser removido (mv não vai encontrar o padrão com versão).
-      - name: Padronizar nome do JAR
+      # Garante target/assinador.jar independentemente do nome gerado.
+      # Com <finalName>assinador</finalName> o arquivo já nasce correto;
+      # o bloco condicional cobre repositórios/builds legados sem finalName.
+      - name: Padronizar nome do JAR (compatibilidade)
         run: |
-          JAR=$(ls target/assinador-*.jar | grep -v original | head -1)
-          echo "JAR encontrado: ${JAR}"
-          mv "${JAR}" target/assinador.jar
+          if ls target/assinador-*.jar >/dev/null 2>&1; then
+            JAR=$(ls target/assinador-*.jar | grep -v original | head -1)
+            echo "JAR legado encontrado: ${JAR} → renomeando para assinador.jar"
+            mv "${JAR}" target/assinador.jar
+          fi
+          echo "=== JAR final ==="
           ls -lh target/assinador.jar
 
       - name: Upload do JAR como artifact interno
@@ -84,6 +87,10 @@ jobs:
   # ─────────────────────────────────────────────
   # 2. Cross-compilation do CLI Go
   #    Raiz do módulo: simulador/cli/
+  #
+  #    A versão do Go é lida de simulador/cli/go.mod (go-version-file),
+  #    mantendo paridade com o CI e evitando divergência de toolchain
+  #    entre build de verificação e build de release.
   # ─────────────────────────────────────────────
   build-go:
     name: Build Go · ${{ matrix.goos }}/${{ matrix.goarch }}
@@ -110,10 +117,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Go 1.25
+      - name: Configurar Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          # Lê a versão exata declarada em simulador/cli/go.mod
+          go-version-file: simulador/cli/go.mod
           cache: true
           cache-dependency-path: simulador/cli/go.sum
 
@@ -121,8 +129,7 @@ jobs:
       # Isso permite que 'assinatura version' retorne algo rastreável:
       #   assinatura v1.0.0 (abc1234)
       #
-      # ATENÇÃO: ajuste o caminho do módulo abaixo conforme declarado
-      # no simulador/cli/go.mod (campo 'module').
+      # O caminho do módulo é lido do go.mod, evitando hardcode.
       - name: Compilar binário
         env:
           GOOS: ${{ matrix.goos }}
@@ -136,22 +143,34 @@ jobs:
           MODULE=$(head -1 go.mod | awk '{print $2}')
           echo "Módulo Go: ${MODULE}"
 
+          # Binário 1: assinatura (pacote main na raiz de simulador/cli)
           BINARY="assinatura-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
-
           go build \
             -ldflags "-X '${MODULE}/cmd.Version=${VERSION}' \
                       -X '${MODULE}/cmd.Commit=${COMMIT}'" \
             -o "${BINARY}" \
             .
-
           echo "BINARY=${BINARY}" >> "$GITHUB_ENV"
           ls -lh "${BINARY}"
 
-      - name: Upload do binário como artifact interno
+          # Binário 2: hubsaude (pacote main em simulador/cli/hubsaude)
+          # Gerencia o ciclo de vida do Simulador do HubSaúde (US-03).
+          BINARY_HUB="hubsaude-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
+          go build \
+            -ldflags "-X '${MODULE}/hubsaude/cmd.Version=${VERSION}' \
+                      -X '${MODULE}/hubsaude/cmd.Commit=${COMMIT}'" \
+            -o "${BINARY_HUB}" \
+            ./hubsaude
+          echo "BINARY_HUB=${BINARY_HUB}" >> "$GITHUB_ENV"
+          ls -lh "${BINARY_HUB}"
+
+      - name: Upload dos binários como artifact interno
         uses: actions/upload-artifact@v4
         with:
           name: go-binary-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: simulador/cli/${{ env.BINARY }}
+          path: |
+            simulador/cli/${{ env.BINARY }}
+            simulador/cli/${{ env.BINARY_HUB }}
           if-no-files-found: error
           retention-days: 1
 
@@ -207,7 +226,7 @@ jobs:
         env:
           COSIGN_YES: "true"
         run: |
-          for f in assinatura-* assinador.jar; do
+          for f in assinatura-* hubsaude-* assinador.jar; do
             echo "Assinando: ${f}"
             cosign sign-blob \
               --output-signature "${f}.sig" \
@@ -225,12 +244,15 @@ jobs:
 
           ### Downloads
 
-          | Plataforma       | Arquivo                                               |
-          |-----------------|-------------------------------------------------------|
-          | Linux (amd64)   | `assinatura-${{ github.ref_name }}-linux-amd64`       |
-          | Windows (amd64) | `assinatura-${{ github.ref_name }}-windows-amd64.exe` |
-          | macOS (amd64)   | `assinatura-${{ github.ref_name }}-darwin-amd64`      |
-          | Assinador (JAR) | `assinador.jar`                                       |
+          | Aplicação  | Plataforma       | Arquivo                                               |
+          |-----------|-----------------|-------------------------------------------------------|
+          | assinatura | Linux (amd64)   | `assinatura-${{ github.ref_name }}-linux-amd64`       |
+          | assinatura | Windows (amd64) | `assinatura-${{ github.ref_name }}-windows-amd64.exe` |
+          | assinatura | macOS (amd64)   | `assinatura-${{ github.ref_name }}-darwin-amd64`      |
+          | hubsaude   | Linux (amd64)   | `hubsaude-${{ github.ref_name }}-linux-amd64`         |
+          | hubsaude   | Windows (amd64) | `hubsaude-${{ github.ref_name }}-windows-amd64.exe`   |
+          | hubsaude   | macOS (amd64)   | `hubsaude-${{ github.ref_name }}-darwin-amd64`        |
+          | Assinador  | (JVM)           | `assinador.jar`                                       |
 
           ### Verificar integridade
 
@@ -263,6 +285,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/assinatura-*
+            dist/hubsaude-*
             dist/assinador.jar
             dist/checksums-*.txt
             dist/*.sig

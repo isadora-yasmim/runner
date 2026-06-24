@@ -1,0 +1,34 @@
+@startuml C4_Container_Hubsaude
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Sistema Runner - Diagrama de Conteiner (com modulo hubsaude)
+
+Person(user, "Usuario", "Interage via linha de comando")
+
+System_Boundary(system, "Sistema Runner") {
+
+    Container_Boundary(cli, "Modulo Go (simulador/cli)") {
+        Container(assinatura, "assinatura", "Go (binario)", "CLI de assinatura: sign, verify, start, stop, status, version")
+        Container(hubsaude, "hubsaude", "Go (binario)", "CLI do Simulador: start, stop, status, version")
+    }
+
+    Container(assinador, "assinador.jar", "Java (JAR)", "Assina e valida assinaturas (simulado)")
+    Container(simulador, "simulador.jar", "Spring Boot (JAR externo)", "Simulador do HubSaude; fora do escopo de desenvolvimento")
+    ContainerDb(cache, "Cache local", "Sistema de arquivos (~/.hubsaude/)", "JAR em cache e registro de PID/porta")
+}
+
+System_Ext(pkcs11, "Dispositivo PKCS#11", "Token criptografico")
+System_Ext(releases, "GitHub Releases", "kyriosdata/runner; distribui o simulador.jar e checksums")
+
+Rel(user, assinatura, "Executa comandos")
+Rel(user, hubsaude, "Executa comandos")
+
+Rel(assinatura, assinador, "Executa via processo ou HTTP", "java -jar / HTTP")
+Rel(assinador, pkcs11, "Realiza operacoes criptograficas")
+
+Rel(hubsaude, simulador, "Inicia e encerra", "java -jar")
+Rel(hubsaude, releases, "Consulta versao mais recente e baixa", "HTTPS / GitHub API")
+Rel(hubsaude, cache, "Armazena e reutiliza o JAR; registra PID/porta")
+Rel(hubsaude, simulador, "Health/readiness", "GET /actuator/health")
+
+@enduml
