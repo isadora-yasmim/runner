@@ -1,14 +1,12 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"time"
 )
 
@@ -18,7 +16,8 @@ func ensureServerRunning() error {
 		return nil
 	}
 
-	if err := checkJavaInstalled(); err != nil {
+	javaPath, err := resolveJava()
+	if err != nil {
 		return err
 	}
 
@@ -29,7 +28,7 @@ func ensureServerRunning() error {
 
 	slog.Warn("assinador não encontrado, iniciando automaticamente", "porta", serverPort)
 
-	command := exec.Command("java", "-jar", jarPath, "server", "--port", fmt.Sprintf("%d", serverPort))
+	command := exec.Command(javaPath, "-jar", jarPath, "server", "--port", fmt.Sprintf("%d", serverPort))
 	if err := command.Start(); err != nil {
 		return fmt.Errorf("erro ao iniciar assinador automaticamente: %w", err)
 	}
@@ -48,12 +47,13 @@ func runLocalJar(args ...string) (string, int, error) {
 		return "", 2, err
 	}
 
-	if err := checkJavaInstalled(); err != nil {
+	javaPath, err := resolveJava()
+	if err != nil {
 		return "", 2, err
 	}
 
 	cmdArgs := append([]string{"-jar", jarPath}, args...)
-	cmd := exec.Command("java", cmdArgs...)
+	cmd := exec.Command(javaPath, cmdArgs...)
 	cmd.Stderr = os.Stderr
 
 	out, err := cmd.Output()
@@ -101,20 +101,6 @@ func isServerRunning(port int) bool {
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
-}
-
-func checkJavaInstalled() error {
-	if err := exec.Command("java", "-version").Run(); err != nil {
-		if runtime.GOOS == "windows" {
-			return errors.New(
-				"java não encontrado no PATH\n→ instale o JDK 21+: https://adoptium.net\n→ adicione ao PATH: C:\\Program Files\\Java\\jdk-XX\\bin",
-			)
-		}
-		return errors.New(
-			"java não encontrado no PATH\n→ instale o JDK 21+: sudo apt install openjdk-21-jdk\n→ após instalar, reinicie o terminal",
-		)
-	}
-	return nil
 }
 
 // jarCandidates retorna a lista ordenada de caminhos onde o assinador.jar
@@ -172,7 +158,7 @@ func getAssinadorJarPath() (string, error) {
 		}
 	}
 
-	return "", errors.New(
+	return "", fmt.Errorf(
 		"assinador.jar não encontrado\n→ defina: set ASSINADOR_JAR=C:\\caminho\\para\\assinador.jar  (Windows)\n→ ou compile: cd ..\\assinador && mvn clean package -DskipTests",
 	)
 }

@@ -26,7 +26,7 @@ Exemplos:
 			return nil
 		}
 
-		err := checkJavaInstalled()
+		javaPath, err := resolveJava()
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ Exemplos:
 			jarArgs = append(jarArgs, "--timeout", fmt.Sprintf("%d", startTimeout))
 		}
 
-		command := exec.Command("java", jarArgs...)
+		command := exec.Command(javaPath, jarArgs...)
 
 		err = command.Start()
 		if err != nil {
